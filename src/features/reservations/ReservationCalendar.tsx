@@ -1,0 +1,523 @@
+import React, { useState, useMemo } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Plus,
+  Calendar as CalendarIcon,
+  Search,
+  BedDouble,
+  Clock,
+  Sparkles,
+  Info,
+  DollarSign,
+  User,
+  Phone,
+  ShieldAlert,
+} from 'lucide-react';
+import { Room, Reservation, RoomType } from '../../types';
+import { formatCurrency, getStatusColor, getChannelBadgeStyle } from '../../utils/formatters';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { ReservationBar } from '../../components/domain';
+
+export interface ReservationCalendarProps {
+  rooms: Room[];
+  roomTypes: RoomType[];
+  reservations: Reservation[];
+  onOpenReservationDetail: (resId: string) => void;
+  onOpenNewReservation: (initialRoomId?: string, initialDate?: string) => void;
+  onOpenCheckIn: (resId: string) => void;
+  onOpenCheckOut: (resId: string) => void;
+}
+
+export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
+  rooms,
+  roomTypes,
+  reservations,
+  onOpenReservationDetail,
+  onOpenNewReservation,
+  onOpenCheckIn,
+  onOpenCheckOut,
+}) => {
+  // Calendar viewport date range state (Defaults to 14 days starting Sep 15, 2026)
+  const [startDateStr, setStartDateStr] = useState('2026-09-15');
+  const [viewDays, setViewDays] = useState<7 | 14 | 30>(14);
+
+  // Filters
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>('all');
+  const [selectedFloor, setSelectedFloor] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Hover card state
+  const [hoveredRes, setHoveredRes] = useState<{
+    res: Reservation;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Generate date array
+  const dates = useMemo(() => {
+    const list: string[] = [];
+    const base = new Date(startDateStr);
+    for (let i = 0; i < viewDays; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      list.push(d.toISOString().split('T')[0]);
+    }
+    return list;
+  }, [startDateStr, viewDays]);
+
+  // Filter rooms
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      if (selectedRoomTypeId !== 'all' && r.roomTypeId !== selectedRoomTypeId) return false;
+      if (selectedFloor !== 'all' && r.floor.toString() !== selectedFloor) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          r.roomNumber.toLowerCase().includes(q) ||
+          r.roomTypeName.toLowerCase().includes(q) ||
+          (r.currentGuestName && r.currentGuestName.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [rooms, selectedRoomTypeId, selectedFloor, searchQuery]);
+
+  // Navigate calendar dates
+  const handleShiftDate = (days: number) => {
+    const d = new Date(startDateStr);
+    d.setDate(d.getDate() + days);
+    setStartDateStr(d.toISOString().split('T')[0]);
+  };
+
+  const handleToday = () => {
+    setStartDateStr('2026-09-15');
+  };
+
+  // Unassigned reservations
+  const unassignedReservations = reservations.filter(
+    (r) => !r.roomId && r.status !== 'Cancelled' && r.status !== 'Checked Out'
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Calendar Top Control Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
+            <button
+              onClick={() => handleShiftDate(-viewDays)}
+              className="p-1 rounded hover:bg-white text-gray-700 transition-colors cursor-pointer"
+              title="Previous period"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={handleToday}
+              className="px-2.5 text-xs font-semibold text-gray-800 hover:bg-white"
+            >
+              Today
+            </Button>
+            <button
+              onClick={() => handleShiftDate(viewDays)}
+              className="p-1 rounded hover:bg-white text-gray-700 transition-colors cursor-pointer"
+              title="Next period"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+            <CalendarIcon className="w-4 h-4 text-blue-600" />
+            <span className="font-semibold text-gray-900">
+              {new Date(dates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+            <span>–</span>
+            <span className="font-semibold text-gray-900">
+              {new Date(dates[dates.length - 1]).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+
+          {/* View range switcher (7 days, 14 days, 30 days) */}
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {[7, 14, 30].map((num) => (
+              <button
+                key={num}
+                onClick={() => setViewDays(num as 7 | 14 | 30)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  viewDays === num ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {num}D
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Room Type select */}
+          <select
+            value={selectedRoomTypeId}
+            onChange={(e) => setSelectedRoomTypeId(e.target.value)}
+            className="text-xs h-8 px-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 outline-none focus:border-blue-600 cursor-pointer"
+          >
+            <option value="all">All Room Types</option>
+            {roomTypes.map((rt) => (
+              <option key={rt.id} value={rt.id}>
+                {rt.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Floor select */}
+          <select
+            value={selectedFloor}
+            onChange={(e) => setSelectedFloor(e.target.value)}
+            className="text-xs h-8 px-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 outline-none focus:border-blue-600 cursor-pointer"
+          >
+            <option value="all">All Floors</option>
+            <option value="1">Floor 1</option>
+            <option value="2">Floor 2</option>
+            <option value="3">Floor 3</option>
+          </select>
+
+          {/* Search input */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+            <input
+              type="text"
+              placeholder="Room # or guest..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-xs h-8 pl-8 pr-3 bg-white border border-gray-200 rounded-lg text-gray-800 placeholder:text-gray-400 outline-none focus:border-blue-600 w-36 sm:w-44"
+            />
+          </div>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onOpenNewReservation()}
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+          >
+            Book Room
+          </Button>
+        </div>
+      </div>
+
+      {/* Unassigned Reservations Bar (if any) */}
+      {unassignedReservations.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="font-semibold text-amber-900">
+              {unassignedReservations.length} Unassigned Reservation(s) Waiting for Room Assignment:
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {unassignedReservations.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => onOpenReservationDetail(u.id)}
+                  className="px-2 py-0.5 rounded bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-medium transition-colors cursor-pointer"
+                >
+                  {u.refCode} ({u.guest.firstName} {u.guest.lastName} • {u.roomTypeName})
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="text-[11px] text-amber-700 hidden sm:inline">Click to assign room number</span>
+        </div>
+      )}
+
+      {/* Calendar Tape Chart Grid */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden relative">
+        <div className="overflow-x-auto min-h-[500px]">
+          <div className="min-w-[960px]">
+            {/* Header Row: Dates */}
+            <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+              {/* Room Column Header */}
+              <div className="w-48 shrink-0 p-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-r border-gray-200 flex items-center justify-between bg-gray-50">
+                <span>Room / Type</span>
+                <span className="text-[10px] text-gray-400 lowercase font-normal">
+                  {filteredRooms.length} rooms
+                </span>
+              </div>
+
+              {/* Date Columns */}
+              <div className="flex-1 flex">
+                {dates.map((dateStr) => {
+                  const d = new Date(dateStr);
+                  const isToday = dateStr === '2026-09-16';
+                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                  const dayNum = d.getDate();
+
+                  return (
+                    <div
+                      key={dateStr}
+                      className={`flex-1 min-w-[64px] p-2 text-center border-r border-gray-100 transition-colors ${
+                        isToday ? 'bg-blue-50/70 border-blue-200' : isWeekend ? 'bg-gray-100/50' : ''
+                      }`}
+                    >
+                      <div
+                        className={`text-[10px] uppercase font-bold tracking-tight ${
+                          isToday ? 'text-blue-700' : 'text-gray-400'
+                        }`}
+                      >
+                        {dayName}
+                      </div>
+                      <div
+                        className={`text-xs font-bold mt-0.5 ${
+                          isToday
+                            ? 'w-6 h-6 rounded-full bg-blue-600 text-white mx-auto flex items-center justify-center'
+                            : 'text-gray-800'
+                        }`}
+                      >
+                        {dayNum}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Room Rows */}
+            <div className="divide-y divide-gray-100">
+              {filteredRooms.map((room) => {
+                // Find reservations for this room that overlap with calendar date window
+                const roomResList = reservations.filter((r) => {
+                  if (r.roomId !== room.id) return false;
+                  if (r.status === 'Cancelled') return false;
+                  // Check overlap
+                  return r.checkInDate <= dates[dates.length - 1] && r.checkOutDate >= dates[0];
+                });
+
+                return (
+                  <div key={room.id} className="flex h-14 group hover:bg-gray-50/40 relative">
+                    {/* Left Room Info Column */}
+                    <div className="w-48 shrink-0 p-2.5 border-r border-gray-200 flex items-center justify-between bg-white group-hover:bg-gray-50/60 transition-colors z-2">
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-gray-900">
+                            {room.roomNumber}
+                          </span>
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              room.housekeepingStatus === 'Ready' || room.housekeepingStatus === 'Inspected'
+                                ? 'bg-emerald-500'
+                                : room.housekeepingStatus === 'Dirty'
+                                ? 'bg-rose-500'
+                                : 'bg-amber-500'
+                            }`}
+                            title={`Housekeeping: ${room.housekeepingStatus}`}
+                          />
+                        </div>
+                        <div className="text-[10px] text-gray-500 truncate font-normal">
+                          {room.roomTypeName}
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-gray-400">Fl {room.floor}</span>
+                      </div>
+                    </div>
+
+                    {/* Timeline Grid Cells */}
+                    <div className="flex-1 flex relative">
+                      {/* Background Day Cells */}
+                      {dates.map((dateStr) => {
+                        const isToday = dateStr === '2026-09-16';
+                        return (
+                          <div
+                            key={dateStr}
+                            onClick={() => onOpenNewReservation(room.id, dateStr)}
+                            className={`flex-1 min-w-[64px] border-r border-gray-100 transition-colors hover:bg-blue-50/20 cursor-pointer ${
+                              isToday ? 'bg-blue-50/30' : ''
+                            }`}
+                            title={`Click to book Room ${room.roomNumber} on ${dateStr}`}
+                          />
+                        );
+                      })}
+
+                      {/* Render Reservation Blocks */}
+                      {roomResList.map((res) => {
+                        // Calculate start offset and width in days
+                        const startIndex = dates.indexOf(res.checkInDate);
+                        const endIndex = dates.indexOf(res.checkOutDate);
+
+                        const colStart = startIndex >= 0 ? startIndex : 0;
+                        const colEnd = endIndex >= 0 ? endIndex : dates.length;
+                        const spanDays = Math.max(1, colEnd - colStart);
+
+                        const leftPercent = (colStart / dates.length) * 100;
+                        const widthPercent = (spanDays / dates.length) * 100;
+
+                        // Reservation block styling based on status
+                        const statusColors: Record<
+                          string,
+                          { bg: string; text: string; border: string; hover: string }
+                        > = {
+                          'Checked In': {
+                            bg: 'bg-blue-600',
+                            text: 'text-white',
+                            border: 'border-blue-700',
+                            hover: 'hover:bg-blue-700',
+                          },
+                          Confirmed: {
+                            bg: 'bg-emerald-600',
+                            text: 'text-white',
+                            border: 'border-emerald-700',
+                            hover: 'hover:bg-emerald-700',
+                          },
+                          'Checked Out': {
+                            bg: 'bg-gray-400',
+                            text: 'text-white',
+                            border: 'border-gray-500',
+                            hover: 'hover:bg-gray-500',
+                          },
+                          'Maintenance Hold': {
+                            bg: 'bg-amber-600',
+                            text: 'text-white',
+                            border: 'border-amber-700',
+                            hover: 'hover:bg-amber-700',
+                          },
+                        };
+
+                        const c = statusColors[res.status] || {
+                          bg: 'bg-slate-700',
+                          text: 'text-white',
+                          border: 'border-slate-800',
+                          hover: 'hover:bg-slate-800',
+                        };
+
+                        return (
+                          <ReservationBar
+                            key={res.id}
+                            reservation={res}
+                            onClick={() => onOpenReservationDetail(res.id)}
+                            onMouseEnter={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setHoveredRes({
+                                res,
+                                x: rect.left + rect.width / 2,
+                                y: rect.top,
+                              });
+                            }}
+                            onMouseLeave={() => setHoveredRes(null)}
+                            style={{
+                              left: `${leftPercent}%`,
+                              width: `${widthPercent}%`,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Hover Card Detail on reservation cursor hover */}
+      {hoveredRes && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${Math.min(window.innerWidth - 300, Math.max(10, hoveredRes.x - 140))}px`,
+            top: `${Math.max(10, hoveredRes.y - 145)}px`,
+            zIndex: 60,
+          }}
+          className="w-72 bg-white rounded-xl shadow-2xl border border-gray-200 p-3.5 pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h5 className="text-xs font-bold text-gray-900">
+                  {hoveredRes.res.guest.firstName} {hoveredRes.res.guest.lastName}
+                </h5>
+                {hoveredRes.res.guest.vipStatus && (
+                  <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                    VIP
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-gray-500">{hoveredRes.res.refCode}</p>
+            </div>
+            <Badge variant="status" status={hoveredRes.res.status} size="sm" />
+          </div>
+
+          <div className="mt-2.5 pt-2 border-t border-gray-100 space-y-1.5 text-[11px] text-gray-600">
+            <div className="flex justify-between">
+              <span>Dates:</span>
+              <span className="font-medium text-gray-900">
+                {hoveredRes.res.checkInDate} → {hoveredRes.res.checkOutDate} ({hoveredRes.res.nights} nights)
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Room & Type:</span>
+              <span className="font-medium text-gray-900">
+                Room {hoveredRes.res.roomNumber} ({hoveredRes.res.roomTypeName})
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Channel:</span>
+              <Badge variant="channel" channel={hoveredRes.res.bookingSource} size="sm" />
+            </div>
+            <div className="flex justify-between">
+              <span>Folio Balance:</span>
+              <span className={`font-semibold ${hoveredRes.res.balanceAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {hoveredRes.res.balanceAmount > 0
+                  ? `Due ${formatCurrency(hoveredRes.res.balanceAmount)}`
+                  : 'Paid in Full'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tape Chart Legend Bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between flex-wrap gap-3 text-xs text-gray-600">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="font-semibold text-gray-900">Legend:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-blue-600" />
+            <span>Checked In</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-emerald-600" />
+            <span>Confirmed</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-gray-400" />
+            <span>Checked Out</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-amber-600" />
+            <span>Maintenance Hold</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 text-[11px] text-gray-500">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Ready / Clean</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span>Dirty Turnover</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
