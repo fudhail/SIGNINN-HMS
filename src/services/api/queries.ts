@@ -588,6 +588,123 @@ export function useUpdateMaintenanceMutation() {
   });
 }
 
+export function useCreateMaintenanceTicketMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ticket: any) => {
+      try {
+        return await apiRequest('/api/maintenance/tickets', {
+          method: 'POST',
+          body: JSON.stringify({
+            room_id: ticket.roomId,
+            room_number: ticket.roomNumber,
+            title: ticket.title,
+            description: ticket.description || '',
+            priority: ticket.priority || ticket.severity || 'Medium',
+            reported_by: ticket.reportedBy || 'Front Desk',
+            category: ticket.category || 'General',
+          }),
+        });
+      } catch {
+        return await mockServices.addMaintenanceTicket(ticket);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useUpdateMaintenanceTicketStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: string }) => {
+      try {
+        return await apiRequest(`/api/maintenance/tickets/${ticketId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+      } catch {
+        return await mockServices.updateTicketStatus(ticketId, status as any);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useUpdateHousekeepingTaskStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
+      try {
+        return await apiRequest(`/api/housekeeping/tasks/${taskId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+      } catch {
+        return await mockServices.updateTaskStatus(taskId, status as any);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useToggleHousekeepingItemMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, itemId }: { taskId: string; itemId: string }) => {
+      try {
+        return await apiRequest(`/api/housekeeping/tasks/${taskId}/toggle-item`, {
+          method: 'POST',
+          body: JSON.stringify({ itemId }),
+        });
+      } catch {
+        return await mockServices.toggleChecklistItem(taskId, itemId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
+    },
+  });
+}
+
+export function useUpdateRatePlanMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (plan: any) => {
+      try {
+        return await apiRequest(`/api/rates/${plan.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: plan.name,
+            base_price_multiplier: plan.basePriceMultiplier || plan.base_price_multiplier,
+            cancellation_policy: plan.cancellationPolicy || plan.cancellation_policy,
+            min_stay: plan.minStay || plan.min_stay,
+            meal_plan: plan.mealPlan || plan.meal_plan,
+          }),
+        });
+      } catch {
+        return await mockServices.updateRatePlan(plan);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ratePlans'] });
+    },
+  });
+}
+
 export function useRecordPaymentMutation() {
   const queryClient = useQueryClient();
 

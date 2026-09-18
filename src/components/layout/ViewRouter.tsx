@@ -62,6 +62,11 @@ import {
   useUpdateChannelMarkupMutation,
   useToggleChannelStatusMutation,
   useForceChannelSyncMutation,
+  useCreateMaintenanceTicketMutation,
+  useUpdateMaintenanceTicketStatusMutation,
+  useUpdateHousekeepingTaskStatusMutation,
+  useToggleHousekeepingItemMutation,
+  useUpdateRatePlanMutation,
 } from '../../services/api/queries';
 
 import * as mockServices from '../../services';
@@ -122,6 +127,11 @@ export const ViewRouter: React.FC = () => {
   const updateChannelMarkupMutation = useUpdateChannelMarkupMutation();
   const toggleChannelStatusMutation = useToggleChannelStatusMutation();
   const forceChannelSyncMutation = useForceChannelSyncMutation();
+  const createMaintenanceTicketMutation = useCreateMaintenanceTicketMutation();
+  const updateMaintenanceTicketStatusMutation = useUpdateMaintenanceTicketStatusMutation();
+  const updateHskTaskStatusMutation = useUpdateHousekeepingTaskStatusMutation();
+  const toggleHskItemMutation = useToggleHousekeepingItemMutation();
+  const updateRatePlanMutation = useUpdateRatePlanMutation();
 
   const currentTenant = tenants.find((t) => t.id === currentTenantId) || tenants[0];
   const isSuperAdmin = currentRole === 'SIGNINN Super Admin';
@@ -342,16 +352,20 @@ export const ViewRouter: React.FC = () => {
         <HousekeepingView
           tasks={housekeepingTasks}
           onToggleChecklistItem={async (taskId, itemId) => {
-            await mockServices.toggleChecklistItem(taskId, itemId);
+            await toggleHskItemMutation.mutateAsync({ taskId, itemId });
           }}
           onUpdateTaskStatus={async (taskId, status) => {
-            await mockServices.updateTaskStatus(taskId, status);
+            await updateHskTaskStatusMutation.mutateAsync({ taskId, status });
           }}
           onReportMaintenance={async (roomNumber, issue, priority) => {
             const room = rooms.find((r) => r.roomNumber === roomNumber);
-            await updateMntMutation.mutateAsync({
+            await createMaintenanceTicketMutation.mutateAsync({
               roomId: room?.id || `rm-${roomNumber}`,
-              status: 'Maintenance Required',
+              roomNumber,
+              title: issue,
+              description: `Housekeeping report: ${issue}`,
+              severity: priority,
+              reportedBy: 'Housekeeping Team',
             });
             showToast({
               title: 'Maintenance Ticket Created',
@@ -367,16 +381,16 @@ export const ViewRouter: React.FC = () => {
         <MaintenanceView
           tickets={maintenanceTickets}
           rooms={rooms}
-          onAddTicket={(ticket) => {
-            mockServices.addMaintenanceTicket(ticket);
+          onAddTicket={async (ticket) => {
+            await createMaintenanceTicketMutation.mutateAsync(ticket);
             showToast({
               title: 'Maintenance Ticket Added',
               description: ticket.title,
               type: 'success',
             });
           }}
-          onUpdateTicketStatus={(ticketId, status) => {
-            mockServices.updateTicketStatus(ticketId, status);
+          onUpdateTicketStatus={async (ticketId, status) => {
+            await updateMaintenanceTicketStatusMutation.mutateAsync({ ticketId, status });
           }}
         />
       );
@@ -387,7 +401,7 @@ export const ViewRouter: React.FC = () => {
           ratePlans={ratePlans}
           roomTypes={roomTypes}
           onUpdateRatePlan={async (plan) => {
-            await mockServices.updateRatePlan(plan);
+            await updateRatePlanMutation.mutateAsync(plan);
             showToast({
               title: 'Rate Plan Updated',
               description: `${plan.name} pricing synchronized.`,
@@ -508,7 +522,7 @@ export const ViewRouter: React.FC = () => {
       return (
         <QrRoomServiceModal
           isOpen={true}
-          onClose={() => navigateTo('dashboard')}
+          onClose={() => setCurrentView('dashboard')}
           currentProperty={currentProperty}
           rooms={rooms}
         />
@@ -518,7 +532,7 @@ export const ViewRouter: React.FC = () => {
       return (
         <WhatsAppConciergeModal
           isOpen={true}
-          onClose={() => navigateTo('messages')}
+          onClose={() => setCurrentView('messages')}
           currentProperty={currentProperty}
         />
       );
