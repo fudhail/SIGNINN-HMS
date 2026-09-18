@@ -36,7 +36,8 @@ def get_rooms(
         query = query.filter(Room.occupancy_status == occupancy_status)
     if housekeeping_status:
         query = query.filter(Room.housekeeping_status == housekeeping_status)
-    return query.order_by(Room.room_number).all()
+    all_rooms = query.all()
+    return sorted(all_rooms, key=lambda r: int(r.room_number) if r.room_number.isdigit() else 9999)
 
 
 @router.get("/api/rooms/{room_id}", response_model=RoomResponse)

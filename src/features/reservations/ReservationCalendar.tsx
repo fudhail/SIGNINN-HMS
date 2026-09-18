@@ -68,21 +68,27 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
     return list;
   }, [startDateStr, viewDays]);
 
+  const availableFloors = useMemo(() => {
+    return Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
+  }, [rooms]);
+
   // Filter rooms
   const filteredRooms = useMemo(() => {
-    return rooms.filter((r) => {
-      if (selectedRoomTypeId !== 'all' && r.roomTypeId !== selectedRoomTypeId) return false;
-      if (selectedFloor !== 'all' && r.floor.toString() !== selectedFloor) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        return (
-          r.roomNumber.toLowerCase().includes(q) ||
-          r.roomTypeName.toLowerCase().includes(q) ||
-          (r.currentGuestName && r.currentGuestName.toLowerCase().includes(q))
-        );
-      }
-      return true;
-    });
+    return rooms
+      .filter((r) => {
+        if (selectedRoomTypeId !== 'all' && r.roomTypeId !== selectedRoomTypeId) return false;
+        if (selectedFloor !== 'all' && r.floor.toString() !== selectedFloor) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          return (
+            r.roomNumber.toLowerCase().includes(q) ||
+            r.roomTypeName.toLowerCase().includes(q) ||
+            (r.currentGuestName && r.currentGuestName.toLowerCase().includes(q))
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => parseInt(a.roomNumber) - parseInt(b.roomNumber));
   }, [rooms, selectedRoomTypeId, selectedFloor, searchQuery]);
 
   // Navigate calendar dates
@@ -183,9 +189,11 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
             className="text-xs h-9 px-3 bg-slate-50/80 hover:bg-white border border-slate-200/90 rounded-xl text-slate-800 font-medium outline-none focus:border-blue-600 cursor-pointer transition-colors shadow-2xs"
           >
             <option value="all">All Floors</option>
-            <option value="1">Floor 1</option>
-            <option value="2">Floor 2</option>
-            <option value="3">Floor 3</option>
+            {availableFloors.map((floor) => (
+              <option key={floor} value={floor.toString()}>
+                Floor {floor}
+              </option>
+            ))}
           </select>
 
           {/* Search input */}

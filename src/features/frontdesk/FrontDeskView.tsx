@@ -371,14 +371,15 @@ export const FrontDeskView: React.FC<FrontDeskViewProps> = ({
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
-              {activeTab === 'inhouse' ? 'Currently Occupied In-House Rooms' : '30-Room Live Room Rack'}
+              {activeTab === 'inhouse' ? 'Currently Occupied In-House Rooms' : `${rooms.length}-Room Live Room Rack`}
             </h3>
             <span className="text-xs text-gray-500">Click any occupied room for quick folio / departure</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
-            {rooms
+            {[...rooms]
               .filter((r) => activeTab !== 'inhouse' || r.occupancyStatus === 'Occupied')
+              .sort((a, b) => parseInt(a.roomNumber) - parseInt(b.roomNumber))
               .map((room) => {
                 const isOccupied = room.occupancyStatus === 'Occupied';
                 const isDirty = room.housekeepingStatus === 'Dirty';

@@ -801,26 +801,16 @@ def seed_50_rooms_yearly():
             rm.current_reservation_id = res_id
             rm.current_guest_name = guest_name
 
-    # Set 2 rooms under maintenance
-    rm_205 = next(r for r in rooms_list if r.room_number == "205")
-    rm_205.maintenance_status = "Maintenance Required"
-    rm_205.maintenance_notes = "HVAC sensor calibration needed"
-
-    rm_408 = next(r for r in rooms_list if r.room_number == "408")
-    rm_408.maintenance_status = "Maintenance Required"
-    rm_408.maintenance_notes = "Balcony sliding latch adjustment"
-
-    # Set a few vacant rooms to dirty/cleaning for realistic housekeeping workflow
-    vacant_rooms = [r for r in rooms_list if r.occupancy_status == "Vacant" and r.maintenance_status == "Operational"]
-    if len(vacant_rooms) >= 4:
-        vacant_rooms[0].housekeeping_status = "Dirty"
-        vacant_rooms[1].housekeeping_status = "Cleaning"
-        vacant_rooms[2].housekeeping_status = "Inspected"
-        vacant_rooms[3].housekeeping_status = "Ready"
-
-    # Generate Housekeeping Tasks
+    # Ensure all rooms are 100% Operational and Ready/Clean
     for rm in rooms_list:
-        if rm.housekeeping_status in ["Dirty", "Cleaning", "Assigned"]:
+        rm.maintenance_status = "Operational"
+        rm.maintenance_notes = ""
+        if rm.occupancy_status == "Vacant":
+            rm.housekeeping_status = "Ready"
+
+    # Generate Housekeeping Tasks for occupied stayovers
+    for rm in rooms_list:
+        if rm.occupancy_status == "Occupied":
             task = HousekeepingTask(
                 id=f"hsk-{rm.room_number}",
                 tenant_id="tenant-1",
@@ -828,40 +818,42 @@ def seed_50_rooms_yearly():
                 room_number=rm.room_number,
                 room_type=rm.room_type_name,
                 floor=rm.floor,
-                type="Stayover" if rm.occupancy_status == "Occupied" else "Checkout",
-                priority="High" if rm.occupancy_status == "Reserved" else "Normal",
-                status=rm.housekeeping_status,
+                type="Stayover",
+                priority="Normal",
+                status="Clean",
                 assigned_to=random.choice(["Sunita Rao", "Kavita Housekeeping", "Ramesh Housekeeping"]),
-                notes="Daily service" if rm.occupancy_status == "Occupied" else "Deep clean for incoming arrival",
+                notes="Daily service completed. Room clean and inspected.",
             )
             db.add(task)
 
-    # Generate Maintenance Tickets
+    # Generate Maintenance Tickets (Historical resolved maintenance logs)
     tickets = [
         MaintenanceTicket(
             id="mnt-001",
             tenant_id="tenant-1",
-            room_id=rm_205.id,
+            room_id="rm-205",
             room_number="205",
-            title="AC intermittent cooling & fan speed oscillation",
-            description="Guest reported AC fluctuates temperature. Thermostat sensor checked; replacement valve scheduled.",
-            priority="High",
-            severity="High",
-            status="In Progress",
-            reported_by="Front Desk (Priya)",
+            title="Thermostat sensor calibrated & tested",
+            description="Routine pre-arrival AC check completed. All HVAC parameters optimal.",
+            priority="Low",
+            severity="Low",
+            status="Resolved",
+            reported_by="Staff (Priya)",
+            resolved_at="2026-09-18T10:00:00",
             category="HVAC/AC",
         ),
         MaintenanceTicket(
             id="mnt-002",
             tenant_id="tenant-1",
-            room_id=rm_408.id,
+            room_id="rm-408",
             room_number="408",
-            title="Balcony ocean-terrace glass sliding latch loose",
-            description="Routine pre-arrival inspection identified loose latch mechanism. Hardware lubrication & screw tighten.",
-            priority="Medium",
-            severity="Medium",
-            status="Reported",
-            reported_by="Housekeeping (Sunita)",
+            title="Balcony ocean-terrace glass sliding latch lubricated",
+            description="Hardware lubrication and smooth latch action verified.",
+            priority="Low",
+            severity="Low",
+            status="Resolved",
+            reported_by="Staff (Sunita)",
+            resolved_at="2026-09-18T11:15:00",
             category="Carpentry",
         ),
         MaintenanceTicket(
