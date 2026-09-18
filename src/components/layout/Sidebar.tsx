@@ -29,6 +29,7 @@ import {
   KeyRound,
   X,
   Lock,
+  QrCode,
 } from 'lucide-react';
 import { UserRole, Tenant } from '../../types';
 import { cn } from '../../utils/formatters';
@@ -108,23 +109,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'records',
           label: 'Master Records',
           icon: Database,
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager'],
         },
         {
           id: 'rooms',
           label: 'Rooms',
           icon: BedDouble,
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Night Auditor'],
         },
         {
           id: 'housekeeping',
           label: 'Housekeeping',
           icon: Sparkles,
           badge: '6',
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Housekeeping'],
         },
         {
           id: 'maintenance',
           label: 'Maintenance',
           icon: Wrench,
           badge: '3',
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Maintenance'],
+        },
+        {
+          id: 'qr-service',
+          label: 'In-Room Dining (QR)',
+          icon: QrCode,
+          badge: 'Add-on',
+          featureFlag: 'qrRoomService',
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk'],
         },
       ],
     },
@@ -147,12 +160,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'channels',
           label: 'Channels (OTA)',
           icon: Radio,
+          featureFlag: 'otaChannelManager',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Revenue Manager'],
         },
         {
           id: 'booking-engine',
           label: 'Booking Engine',
           icon: Globe,
+          featureFlag: 'directBookingEngine',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Revenue Manager'],
         },
       ],
@@ -172,6 +187,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: MessageSquare,
           badge: '1',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Housekeeping'],
+        },
+        {
+          id: 'whatsapp-concierge',
+          label: 'WhatsApp Concierge',
+          icon: MessageSquare,
+          badge: 'Add-on',
+          featureFlag: 'whatsappAutomations',
+          allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk'],
         },
       ],
     },
@@ -205,6 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'reports',
           label: 'Reports',
           icon: BarChart3,
+          featureFlag: 'advancedAnalytics',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Revenue Manager', 'Finance'],
         },
       ],
@@ -235,14 +259,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const filterItem = (item: NavItem) => {
-    // Super Admin has global access to all features
-    if (currentRole === 'SIGNINN Super Admin') return true;
+    // Super Admin ONLY sees Platform HQ ('superadmin') and no hotel operations
+    if (currentRole === 'SIGNINN Super Admin') {
+      return item.id === 'superadmin';
+    }
 
     // Platform HQ is strictly for Super Admin
     if (item.id === 'superadmin') return false;
 
     // Check Role Restrictions
     if (item.allowedRoles && !item.allowedRoles.includes(currentRole)) {
+      return false;
+    }
+
+    // Check Feature Flag entitlement
+    if (item.featureFlag && tenantFeatures && !tenantFeatures[item.featureFlag]) {
       return false;
     }
 
@@ -261,32 +292,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={cn(
-          'bg-[#172033] text-gray-300 flex flex-col transition-all duration-200 ease-in-out border-r border-slate-800 select-none shrink-0',
+          'bg-[#0c1322] text-slate-300 flex flex-col transition-all duration-200 ease-in-out border-r border-slate-800/70 select-none shrink-0',
           // Desktop behavior
           'hidden md:flex',
-          isCollapsed ? 'md:w-16' : 'md:w-60',
+          isCollapsed ? 'md:w-16' : 'md:w-64',
           // Mobile Drawer behavior
           mobileMenuOpen && 'flex fixed inset-y-0 left-0 z-50 w-64 shadow-2xl'
         )}
       >
         {/* Brand Header */}
-        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-800/80">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800/80">
           {!isCollapsed || mobileMenuOpen ? (
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center font-bold text-white tracking-wider text-xs shadow-xs">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center font-extrabold text-white tracking-wider text-sm shadow-md shadow-blue-900/40">
                 S
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-wide text-white font-sans">
-                  SIGNINN <span className="text-blue-400 font-semibold text-xs ml-0.5">HMS</span>
-                </span>
-                <span className="text-[10px] text-slate-400 tracking-tight leading-none">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-base tracking-tight text-white font-sans">
+                    SIGNINN
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/20 text-blue-400 border border-blue-400/30">
+                    HMS
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium tracking-tight leading-none mt-0.5">
                   Hotel Operating System
                 </span>
               </div>
             </div>
           ) : (
-            <div className="w-7 h-7 mx-auto rounded-md bg-blue-600 flex items-center justify-center font-bold text-white text-xs shadow-xs">
+            <div className="w-8 h-8 mx-auto rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center font-extrabold text-white text-sm shadow-md shadow-blue-900/40">
               S
             </div>
           )}
@@ -305,22 +341,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Tenant Suspended Warning in Sidebar */}
         {tenantStatus === 'Suspended' && currentRole !== 'SIGNINN Super Admin' && (!isCollapsed || mobileMenuOpen) && (
-          <div className="mx-2 mt-2 px-2.5 py-1.5 rounded-md bg-rose-950/80 border border-rose-700/60 text-[10px] text-rose-300 flex items-center gap-1.5">
-            <Lock className="w-3 h-3 text-rose-400 shrink-0" />
-            <span>Account Suspended by HQ</span>
+          <div className="mx-3 mt-3 px-3 py-2 rounded-xl bg-rose-950/80 border border-rose-700/60 text-xs text-rose-300 flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <span className="font-semibold">Account Suspended by HQ</span>
           </div>
         )}
 
         {/* Navigation Sections */}
-        <div className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
+        <div className="flex-1 overflow-y-auto py-3.5 px-3 space-y-5">
           {sections.map((sec) => {
             const visibleItems = sec.items.filter(filterItem);
             if (visibleItems.length === 0) return null;
 
             return (
-              <div key={sec.title} className="space-y-0.5">
+              <div key={sec.title} className="space-y-1">
                 {(!isCollapsed || mobileMenuOpen) && (
-                  <div className="px-2.5 py-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                  <div className="px-3 py-1 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                     {sec.title}
                   </div>
                 )}
@@ -342,18 +378,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }}
                       title={isCollapsed && !mobileMenuOpen ? item.label : undefined}
                       className={cn(
-                        'w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer group',
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer group',
                         isActive
-                          ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-sm shadow-blue-500/20'
                           : isFeatureDisabled
-                          ? 'text-slate-400/80 hover:text-slate-200 hover:bg-slate-800/40'
+                          ? 'text-slate-400/70 hover:text-slate-200 hover:bg-slate-800/40'
                           : 'text-slate-300 hover:text-white hover:bg-slate-800/70',
                         isCollapsed && !mobileMenuOpen && 'justify-center px-0'
                       )}
                     >
                       <Icon
                         className={cn(
-                          'w-4 h-4 shrink-0 transition-colors',
+                          'w-4 h-4 shrink-0 transition-transform group-hover:scale-105 duration-150',
                           isActive
                             ? 'text-white'
                             : isFeatureDisabled
@@ -372,10 +408,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {(!isCollapsed || mobileMenuOpen) && !isFeatureDisabled && item.badge && (
                         <span
                           className={cn(
-                            'text-[10px] px-1.5 py-0.2 rounded-full font-medium',
+                            'text-[10px] px-2 py-0.5 rounded-full font-bold',
                             isActive
                               ? 'bg-white/20 text-white'
-                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                              : 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
                           )}
                         >
                           {item.badge}
@@ -390,39 +426,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Auth Flow Quick Link */}
-        <div className="px-2 pt-2 pb-1 border-t border-slate-800/80">
+        <div className="p-3 border-t border-slate-800/70">
           <button
             onClick={() => {
               onNavigate('auth');
               if (onCloseMobileMenu) onCloseMobileMenu();
             }}
-            title={isCollapsed && !mobileMenuOpen ? 'Authentication Flow' : undefined}
+            title={isCollapsed && !mobileMenuOpen ? 'Switch User / Login' : undefined}
             className={cn(
-              'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer text-slate-400 hover:text-white hover:bg-slate-800/70',
-              currentView === 'auth' && 'bg-indigo-600 text-white font-semibold',
+              'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-slate-300 hover:text-white hover:bg-slate-800/70 bg-slate-800/40 border border-slate-700/40',
+              currentView === 'auth' && 'bg-indigo-600 text-white font-semibold border-transparent shadow-sm shadow-indigo-600/30',
               isCollapsed && !mobileMenuOpen && 'justify-center px-0'
             )}
           >
-            <KeyRound className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <KeyRound className="w-4 h-4 text-indigo-400 shrink-0" />
             {(!isCollapsed || mobileMenuOpen) && (
-              <span className="truncate flex-1 text-left">Switch User / Login</span>
+              <span className="truncate flex-1 text-left font-medium">Switch User / Demo</span>
             )}
           </button>
         </div>
 
         {/* Footer Tagline & Collapse toggle */}
-        <div className="p-3 border-t border-slate-800/80 flex items-center justify-between text-slate-400">
+        <div className="p-3 border-t border-slate-800/70 flex items-center justify-between text-slate-400 text-xs">
           {(!isCollapsed || mobileMenuOpen) && (
             <div className="flex flex-col">
-              <span className="text-[10px] text-slate-400 font-medium italic">
-                "Run the hotel. Not the software."
+              <span className="text-[11px] text-slate-300 font-medium">
+                SIGNINN <span className="text-slate-400">v2.4</span>
               </span>
-              <span className="text-[9px] text-slate-400 mt-0.5">SIGNINN HMS v2.4</span>
+              <span className="text-[9px] text-slate-400 italic">
+                Hotel Operating System
+              </span>
             </div>
           )}
           <button
             onClick={onToggleCollapse}
-            className="hidden md:block p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ml-auto"
+            className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ml-auto"
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

@@ -164,10 +164,15 @@ export function provisionTenant(
   return newTenant;
 }
 
-export function updateTenantStatus(tenantId: string, status: TenantStatus): void {
+export function updateTenantStatus(tenantId: string, status: TenantStatus, reason?: string): void {
   const idx = tenantsState.findIndex((t) => t.id === tenantId);
   if (idx !== -1) {
     tenantsState[idx].status = status;
+    if (reason) {
+      tenantsState[idx].suspendedReason = reason;
+    } else if (status === 'Active') {
+      tenantsState[idx].suspendedReason = undefined;
+    }
   }
 }
 
@@ -190,6 +195,59 @@ export function updateTenantFeatures(tenantId: string, features: Partial<Tenant[
       },
     };
   }
+}
+
+export function toggleTenantDeletion(tenantId: string, allowed?: boolean): boolean {
+  const idx = tenantsState.findIndex((t) => t.id === tenantId);
+  if (idx !== -1) {
+    const val = allowed !== undefined ? allowed : !tenantsState[idx].deletionAllowed;
+    tenantsState[idx].deletionAllowed = val;
+    return val;
+  }
+  return false;
+}
+
+export function recordTenantSubscriptionPayment(
+  tenantId: string,
+  paymentData: { amount: number; reference: string; method?: string; notes?: string; nextRenewalDate?: string }
+): Tenant | null {
+  const idx = tenantsState.findIndex((t) => t.id === tenantId);
+  if (idx === -1) return null;
+
+  const today = new Date().toISOString().split('T')[0];
+  const newPaymentRecord = {
+    id: `pay-sub-${Date.now()}`,
+    date: today,
+    amount: paymentData.amount,
+    reference: paymentData.reference,
+    method: paymentData.method || 'UPI',
+    notes: paymentData.notes || 'SaaS subscription payment',
+    status: 'Paid',
+  };
+
+  const history = tenantsState[idx].paymentHistory || [];
+  const updatedHistory = [newPaymentRecord, ...history];
+
+  tenantsState[idx] = {
+    ...tenantsState[idx],
+    paymentStatus: 'Paid',
+    lastPaymentDate: today,
+    renewalDate: paymentData.nextRenewalDate || '2027-01-01',
+    paymentHistory: updatedHistory,
+    status: tenantsState[idx].status === 'Past Due' ? 'Active' : tenantsState[idx].status,
+  };
+
+  return tenantsState[idx];
+}
+
+export function deleteTenant(tenantId: string, force = false): boolean {
+  const idx = tenantsState.findIndex((t) => t.id === tenantId);
+  if (idx === -1) return false;
+  if (!tenantsState[idx].deletionAllowed && !force) {
+    throw new Error('Tenant deletion is disabled. Enable "Allow Deletion" toggle first.');
+  }
+  tenantsState.splice(idx, 1);
+  return true;
 }
 
 
@@ -569,7 +627,7 @@ export async function updateChannelMarkup(channelId: string, markup: number): Pr
   await simulateDelay(150);
   const idx = channelsState.findIndex((c) => c.id === channelId);
   if (idx !== -1) {
-    channelsState[idx].commissionRate = markup;
+    channelsState[idx].rateMultiplier = markup;
   }
 }
 

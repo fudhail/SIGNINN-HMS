@@ -63,25 +63,25 @@ export const StatWidget: React.FC<StatWidgetProps> = ({
     <div
       onClick={onClick}
       className={cn(
-        'group relative p-5 bg-white rounded-2xl border border-gray-200/85 shadow-xs transition-all duration-200',
-        isClickable && 'hover:border-indigo-300 hover:shadow-md cursor-pointer active:scale-[0.995]',
+        'group relative p-5 bg-white/95 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03),0_1px_2px_rgba(15,23,42,0.02)] transition-all duration-200',
+        isClickable && 'hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5 cursor-pointer active:scale-[0.995]',
         className
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 truncate">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">
               {title}
             </span>
             {badge && (
-              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-600 rounded-md">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-600 rounded-md">
                 {badge}
               </span>
             )}
           </div>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-bold tracking-tight text-gray-950 font-sans">
+          <div className="flex items-baseline gap-2 mt-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-sans">
               {value}
             </span>
           </div>
@@ -90,7 +90,7 @@ export const StatWidget: React.FC<StatWidgetProps> = ({
         {icon && (
           <div
             className={cn(
-              'w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 transition-transform group-hover:scale-105 duration-200',
+              'w-11 h-11 rounded-xl flex items-center justify-center border shrink-0 transition-transform group-hover:scale-105 duration-200 shadow-2xs',
               iconBgMap[accentColor]
             )}
           >
@@ -99,29 +99,29 @@ export const StatWidget: React.FC<StatWidgetProps> = ({
         )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+      <div className="mt-3.5 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {trend && (
             <span
               className={cn(
-                'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-semibold text-[11px]',
+                'inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md font-bold text-xs',
                 trend.isPositive
-                  ? 'text-emerald-700 bg-emerald-50'
-                  : 'text-rose-700 bg-rose-50'
+                  ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/60'
+                  : 'text-rose-700 bg-rose-50 border border-rose-200/60'
               )}
             >
               {trend.isPositive ? (
-                <TrendingUp className="w-3 h-3 stroke-[2.5]" />
+                <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" />
               ) : (
-                <TrendingDown className="w-3 h-3 stroke-[2.5]" />
+                <TrendingDown className="w-3.5 h-3.5 stroke-[2.5]" />
               )}
               {trend.value}
             </span>
           )}
           {trend?.label ? (
-            <span className="text-gray-400 text-[11px]">{trend.label}</span>
+            <span className="text-slate-400 text-xs font-medium">{trend.label}</span>
           ) : subtitle ? (
-            <span className="text-gray-500 text-[11px] truncate">{subtitle}</span>
+            <span className="text-slate-500 text-xs font-medium truncate">{subtitle}</span>
           ) : null}
         </div>
 
@@ -131,7 +131,7 @@ export const StatWidget: React.FC<StatWidgetProps> = ({
               d={sparklinePath}
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.75"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               className={
@@ -139,7 +139,7 @@ export const StatWidget: React.FC<StatWidgetProps> = ({
                   ? 'text-emerald-500'
                   : trend?.isPositive === false
                   ? 'text-rose-500'
-                  : 'text-indigo-500'
+                  : 'text-blue-500'
               }
             />
           </svg>

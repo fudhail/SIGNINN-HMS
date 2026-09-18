@@ -19,6 +19,8 @@ import {
 import { UserRole } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
+import { apiRequest } from '../../services/api/apiClient';
+import { useAppStore } from '../../stores/useAppStore';
 
 export interface AuthViewProps {
   onLoginSuccess: (user: {
@@ -42,11 +44,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Form states
-  const [email, setEmail] = useState('alex.morgan@grandheritage.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('alex.morgan@grandazure.com');
+  const [password, setPassword] = useState('password123');
   const [fullName, setFullName] = useState('Alex Morgan');
-  const [hotelName, setHotelName] = useState('The Grand Heritage Palace');
-  const [subdomain, setSubdomain] = useState('heritage');
+  const [hotelName, setHotelName] = useState('Grand Azure Resort & Spa');
+  const [subdomain, setSubdomain] = useState('grand-azure');
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -71,14 +73,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
     return valid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
       if (mode === 'forgot') {
         setForgotSubmitted(true);
         showToast({
@@ -87,19 +88,37 @@ export const AuthView: React.FC<AuthViewProps> = ({
           type: 'success',
         });
       } else {
+        const authData = await apiRequest<any>('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+
+        useAppStore.getState().setAuthSession(authData);
+
         showToast({
-          title: mode === 'signup' ? 'Workspace Initialized' : 'Signed In Successfully',
-          description: `Welcome to SIGNINN HMS, ${fullName}`,
+          title: 'Signed In Successfully',
+          description: `Welcome to SIGNINN HMS, ${authData.user?.name || fullName}`,
           type: 'success',
         });
+
+        const effectiveRole = (authData.role?.name || (authData.is_platform_user ? 'SIGNINN Super Admin' : 'Owner')) as UserRole;
+
         onLoginSuccess({
-          name: fullName,
-          email,
-          role: selectedRole,
-          hotelName,
+          name: authData.user?.name || fullName,
+          email: authData.user?.email || email,
+          role: effectiveRole,
+          hotelName: authData.tenant?.name || 'SIGNINN Platform HQ',
         });
       }
-    }, 550);
+    } catch (err: any) {
+      showToast({
+        title: 'Authentication Failed',
+        description: err.message || 'Invalid email or password. Please verify credentials.',
+        type: 'error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const selectDemoRole = (role: UserRole, demoEmail: string, demoName: string, demoHotel: string) => {
@@ -107,7 +126,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setEmail(demoEmail);
     setFullName(demoName);
     setHotelName(demoHotel);
-    setPassword('SignInn2026!Secure');
+    setPassword('password123');
     setEmailError('');
     setPasswordError('');
   };
@@ -235,34 +254,36 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </div>
 
           {/* Quick Demo Credentials Pill Bar (Zero Friction testing) */}
-          <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-2">
+          <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-150 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
                 <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
-                Quick 1-Click Demo Profiles
+                Select Demo Account Persona
               </span>
-              <span className="text-[10px] text-indigo-600 font-medium">Click to populate</span>
+              <span className="text-[10px] text-indigo-700 font-medium">1-Click Sign-in</span>
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <button
                 type="button"
                 onClick={() =>
                   selectDemoRole(
-                    'Owner',
-                    'alex.morgan@grandheritage.com',
-                    'Alex Morgan',
-                    'The Grand Heritage Palace'
+                    'SIGNINN Super Admin',
+                    'superadmin@signinn.com',
+                    'SIGNINN Super Admin',
+                    'SIGNINN Platform HQ'
                   )
                 }
-                className={`px-2 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
-                  selectedRole === 'Owner'
-                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                  selectedRole === 'SIGNINN Super Admin'
+                    ? 'bg-purple-700 text-white border-purple-800 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'
                 }`}
               >
-                <div className="font-semibold text-[11px] truncate">Owner / GM</div>
-                <div className={`text-[9px] truncate ${selectedRole === 'Owner' ? 'text-indigo-100' : 'text-slate-400'}`}>
-                  Full Portfolio
+                <div className="font-semibold text-[11px] truncate flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-purple-300 inline" /> Super Admin
+                </div>
+                <div className={`text-[9px] truncate ${selectedRole === 'SIGNINN Super Admin' ? 'text-purple-200' : 'text-slate-400'}`}>
+                  SaaS HQ Dashboard
                 </div>
               </button>
 
@@ -270,21 +291,43 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 type="button"
                 onClick={() =>
                   selectDemoRole(
-                    'SIGNINN Super Admin',
-                    'superadmin@signinn.com',
-                    'Super Administrator',
-                    'SIGNINN Platform HQ'
+                    'Owner',
+                    'alex.morgan@grandazure.com',
+                    'Alex Morgan (Owner)',
+                    'Grand Azure Resort & Spa'
                   )
                 }
-                className={`px-2 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
-                  selectedRole === 'SIGNINN Super Admin'
-                    ? 'bg-purple-700 text-white border-purple-800 shadow-xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                  selectedRole === 'Owner'
+                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
                 }`}
               >
-                <div className="font-semibold text-[11px] truncate">Super Admin</div>
-                <div className={`text-[9px] truncate ${selectedRole === 'SIGNINN Super Admin' ? 'text-purple-200' : 'text-slate-400'}`}>
-                  Platform HQ
+                <div className="font-semibold text-[11px] truncate">Hotel Owner</div>
+                <div className={`text-[9px] truncate ${selectedRole === 'Owner' ? 'text-indigo-100' : 'text-slate-400'}`}>
+                  Full Hotel Access
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  selectDemoRole(
+                    'Property Manager',
+                    'rohit.gm@grandazure.com',
+                    'Rohit Verma (GM)',
+                    'Grand Azure Resort & Spa'
+                  )
+                }
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                  selectedRole === 'Property Manager'
+                    ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <div className="font-semibold text-[11px] truncate">Hotel Manager</div>
+                <div className={`text-[9px] truncate ${selectedRole === 'Property Manager' ? 'text-blue-100' : 'text-slate-400'}`}>
+                  Multi-Property Ops
                 </div>
               </button>
 
@@ -293,12 +336,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 onClick={() =>
                   selectDemoRole(
                     'Front Desk',
-                    'priya.sharma@grandheritage.com',
-                    'Priya Sharma',
-                    'The Grand Heritage Palace'
+                    'priya.desk@grandazure.com',
+                    'Priya Sharma (Desk)',
+                    'Grand Azure Resort & Spa'
                   )
                 }
-                className={`px-2 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
                   selectedRole === 'Front Desk'
                     ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
@@ -306,7 +349,51 @@ export const AuthView: React.FC<AuthViewProps> = ({
               >
                 <div className="font-semibold text-[11px] truncate">Front Desk</div>
                 <div className={`text-[9px] truncate ${selectedRole === 'Front Desk' ? 'text-emerald-100' : 'text-slate-400'}`}>
-                  Daily Ops
+                  Check-ins & Folios
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  selectDemoRole(
+                    'Housekeeping',
+                    'sunita.clean@grandazure.com',
+                    'Sunita Devi (HK Lead)',
+                    'Grand Azure Resort & Spa'
+                  )
+                }
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                  selectedRole === 'Housekeeping'
+                    ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300'
+                }`}
+              >
+                <div className="font-semibold text-[11px] truncate">Housekeeping</div>
+                <div className={`text-[9px] truncate ${selectedRole === 'Housekeeping' ? 'text-amber-100' : 'text-slate-400'}`}>
+                  Room Clean Status
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  selectDemoRole(
+                    'Finance',
+                    'arun.finance@grandazure.com',
+                    'Arun Menon (Finance)',
+                    'Grand Azure Resort & Spa'
+                  )
+                }
+                className={`px-2.5 py-1.5 rounded-lg text-left text-xs transition-all cursor-pointer border ${
+                  selectedRole === 'Finance'
+                    ? 'bg-slate-800 text-white border-slate-900 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                }`}
+              >
+                <div className="font-semibold text-[11px] truncate">Finance Manager</div>
+                <div className={`text-[9px] truncate ${selectedRole === 'Finance' ? 'text-slate-200' : 'text-slate-400'}`}>
+                  P&L, Taxes & Audit
                 </div>
               </button>
             </div>

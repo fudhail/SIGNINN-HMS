@@ -66,9 +66,10 @@ export const OTABadge: React.FC<OTABadgeProps> = ({
           customIcon: <Globe className="w-3 h-3 text-teal-600" />,
         };
       case 'Walk-in':
+      case 'Direct Walk-in':
         return {
           bg: 'bg-indigo-50 text-indigo-700 border-indigo-300 font-semibold',
-          label: 'Walk-in Desk',
+          label: 'Direct Walk-in',
           customIcon: <UserCheck className="w-3 h-3 text-indigo-600" />,
         };
       case 'Corporate':

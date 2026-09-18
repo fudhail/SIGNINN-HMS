@@ -147,20 +147,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({
                   )}
                 </div>
 
-                {/* Role Switcher Drawer Trigger */}
-                <div className="p-2 border-t border-gray-100 bg-gray-50/70">
-                  <button
-                    onClick={() => setShowRoleSelector(true)}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-800 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer shadow-2xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-blue-600" />
-                      <span>Switch Operational Role</span>
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-normal">Simulate</span>
-                  </button>
-                </div>
-
                 {/* Logout Action */}
                 <div className="py-1 border-t border-gray-100">
                   <button

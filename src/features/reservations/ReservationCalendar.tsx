@@ -104,40 +104,38 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
   return (
     <div className="space-y-4">
       {/* Calendar Top Control Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/95 p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
+          <div className="flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
             <button
               onClick={() => handleShiftDate(-viewDays)}
-              className="p-1 rounded hover:bg-white text-gray-700 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-white text-slate-700 transition-colors cursor-pointer"
               title="Previous period"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <Button
-              variant="ghost"
-              size="xs"
+            <button
               onClick={handleToday}
-              className="px-2.5 text-xs font-semibold text-gray-800 hover:bg-white"
+              className="px-3 py-1 text-xs font-bold text-slate-800 hover:bg-white rounded-lg transition-colors cursor-pointer"
             >
               Today
-            </Button>
+            </button>
             <button
               onClick={() => handleShiftDate(viewDays)}
-              className="p-1 rounded hover:bg-white text-gray-700 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-white text-slate-700 transition-colors cursor-pointer"
               title="Next period"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
-            <CalendarIcon className="w-4 h-4 text-blue-600" />
-            <span className="font-semibold text-gray-900">
+          <div className="flex items-center gap-2 text-xs text-slate-600 font-medium px-2 py-1 rounded-xl bg-slate-50 border border-slate-200/60">
+            <CalendarIcon className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="font-bold text-slate-900">
               {new Date(dates[0]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
             <span>–</span>
-            <span className="font-semibold text-gray-900">
+            <span className="font-bold text-slate-900">
               {new Date(dates[dates.length - 1]).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -147,13 +145,13 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
           </div>
 
           {/* View range switcher (7 days, 14 days, 30 days) */}
-          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          <div className="inline-flex rounded-xl border border-slate-200/70 bg-slate-100/90 p-1">
             {[7, 14, 30].map((num) => (
               <button
                 key={num}
                 onClick={() => setViewDays(num as 7 | 14 | 30)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                  viewDays === num ? 'bg-white text-blue-700 shadow-2xs font-semibold' : 'text-gray-600 hover:text-gray-900'
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  viewDays === num ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {num}D
@@ -163,12 +161,12 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* Room Type select */}
           <select
             value={selectedRoomTypeId}
             onChange={(e) => setSelectedRoomTypeId(e.target.value)}
-            className="text-xs h-8 px-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 outline-none focus:border-blue-600 cursor-pointer"
+            className="text-xs h-9 px-3 bg-slate-50/80 hover:bg-white border border-slate-200/90 rounded-xl text-slate-800 font-medium outline-none focus:border-blue-600 cursor-pointer transition-colors shadow-2xs"
           >
             <option value="all">All Room Types</option>
             {roomTypes.map((rt) => (
@@ -182,7 +180,7 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
           <select
             value={selectedFloor}
             onChange={(e) => setSelectedFloor(e.target.value)}
-            className="text-xs h-8 px-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 outline-none focus:border-blue-600 cursor-pointer"
+            className="text-xs h-9 px-3 bg-slate-50/80 hover:bg-white border border-slate-200/90 rounded-xl text-slate-800 font-medium outline-none focus:border-blue-600 cursor-pointer transition-colors shadow-2xs"
           >
             <option value="all">All Floors</option>
             <option value="1">Floor 1</option>
@@ -192,53 +190,54 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
 
           {/* Search input */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
             <input
               type="text"
               placeholder="Room # or guest..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-xs h-8 pl-8 pr-3 bg-white border border-gray-200 rounded-lg text-gray-800 placeholder:text-gray-400 outline-none focus:border-blue-600 w-36 sm:w-44"
+              className="text-xs h-9 pl-9 pr-3 bg-slate-50/80 hover:bg-white border border-slate-200/90 rounded-xl text-slate-800 placeholder:text-slate-400 font-medium outline-none focus:border-blue-600 w-36 sm:w-48 transition-all shadow-2xs"
             />
           </div>
 
-          <Button
-            variant="primary"
-            size="sm"
+          <button
             onClick={() => onOpenNewReservation()}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-xs hover:shadow-md hover:shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer"
           >
+            <Plus className="w-4 h-4" />
             Book Room
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Unassigned Reservations Bar (if any) */}
       {unassignedReservations.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="font-semibold text-amber-900">
-              {unassignedReservations.length} Unassigned Reservation(s) Waiting for Room Assignment:
+        <div className="bg-amber-50/80 border border-amber-200/90 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+            </div>
+            <span className="font-bold text-amber-900">
+              {unassignedReservations.length} Unassigned Arrivals:
             </span>
             <div className="flex items-center gap-2 flex-wrap">
               {unassignedReservations.map((u) => (
                 <button
                   key={u.id}
                   onClick={() => onOpenReservationDetail(u.id)}
-                  className="px-2 py-0.5 rounded bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 font-medium transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-semibold transition-colors cursor-pointer shadow-2xs"
                 >
                   {u.refCode} ({u.guest.firstName} {u.guest.lastName} • {u.roomTypeName})
                 </button>
               ))}
             </div>
           </div>
-          <span className="text-[11px] text-amber-700 hidden sm:inline">Click to assign room number</span>
+          <span className="text-xs text-amber-800 font-medium hidden sm:inline">Click to assign room number</span>
         </div>
       )}
 
       {/* Calendar Tape Chart Grid */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden relative">
+      <div className="bg-white/95 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] overflow-hidden relative">
         <div className="overflow-x-auto min-h-[500px]">
           <div className="min-w-[960px]">
             {/* Header Row: Dates */}

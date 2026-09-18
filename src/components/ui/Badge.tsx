@@ -6,7 +6,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   status?: string;
   channel?: string;
   dot?: boolean;
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -32,6 +32,7 @@ export const Badge: React.FC<BadgeProps> = ({
   }
 
   const sizeClasses = {
+    xs: 'px-1.5 py-0.5 text-[10px] leading-tight font-medium rounded',
     sm: 'px-2 py-0.5 text-[11px] leading-tight font-medium rounded',
     md: 'px-2.5 py-1 text-xs leading-none font-medium rounded-md',
   };

@@ -70,96 +70,102 @@ export const FrontDeskView: React.FC<FrontDeskViewProps> = ({
   return (
     <div className="space-y-5">
       {/* Front Desk Header & Status Counters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white/95 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-gray-950 font-sans">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 font-sans">
               Front Desk Workspace
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/70">
               Shift Operations
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             Real-time guest arrivals, departures, room assignments, and express walk-in handling.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={onOpenWalkIn}
-            leftIcon={<UserPlus className="w-3.5 h-3.5 text-emerald-600" />}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 hover:border-emerald-300 bg-emerald-50/70 hover:bg-emerald-50 text-emerald-800 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
           >
+            <UserPlus className="w-4 h-4 text-emerald-600" />
             Express Walk-in
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
+          </button>
+          <button
             onClick={onOpenNewReservation}
-            leftIcon={<DoorOpen className="w-3.5 h-3.5" />}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-semibold shadow-xs hover:shadow-md hover:shadow-blue-500/20 transition-all active:scale-[0.98] cursor-pointer"
           >
+            <DoorOpen className="w-4 h-4" />
             New Reservation
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Counter Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="bg-white/95 p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Arrivals Today</span>
-            <DoorOpen className="w-4 h-4 text-blue-600" />
+            <span className="text-xs font-semibold text-slate-500">Arrivals Today</span>
+            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+              <DoorOpen className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-gray-900">{arrivals.length}</span>
-            <span className="text-xs text-gray-500">
-              ({checkedInArrivals} checked in / {arrivals.length - checkedInArrivals} remaining)
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-slate-900">{arrivals.length}</span>
+            <span className="text-xs text-slate-500 font-medium">
+              ({checkedInArrivals} in / {arrivals.length - checkedInArrivals} due)
             </span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+        <div className="bg-white/95 p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Departures Today</span>
-            <LogOut className="w-4 h-4 text-orange-600" />
+            <span className="text-xs font-semibold text-slate-500">Departures Today</span>
+            <div className="p-1.5 rounded-lg bg-orange-50 text-orange-600">
+              <LogOut className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-gray-900">{departures.length}</span>
-            <span className="text-xs text-gray-500">
-              ({completedDepartures} cleared / {departures.length - completedDepartures} pending)
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-slate-900">{departures.length}</span>
+            <span className="text-xs text-slate-500 font-medium">
+              ({completedDepartures} out / {departures.length - completedDepartures} pending)
             </span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+        <div className="bg-white/95 p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Current In-House</span>
-            <Users className="w-4 h-4 text-teal-600" />
+            <span className="text-xs font-semibold text-slate-500">Current In-House</span>
+            <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-gray-900">{inHouse.length}</span>
-            <span className="text-xs text-gray-500">active occupied rooms</span>
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-slate-900">{inHouse.length}</span>
+            <span className="text-xs text-slate-500 font-medium">active occupied rooms</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
+        <div className="bg-white/95 p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] hover:shadow-md hover:-translate-y-0.5 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500">Ready Clean Rooms</span>
-            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-semibold text-slate-500">Ready Clean Rooms</span>
+            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+              <Sparkles className="w-4 h-4" />
+            </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-800">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold text-emerald-800">
               {rooms.filter((r) => r.occupancyStatus === 'Vacant' && r.housekeepingStatus === 'Ready').length}
             </span>
-            <span className="text-xs text-gray-500">available to sell</span>
+            <span className="text-xs text-slate-500 font-medium">available to sell</span>
           </div>
         </div>
       </div>
 
       {/* Search & Tabs Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/95 p-3.5 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
         <Tabs
           variant="segmented"
           activeTab={activeTab}
@@ -174,13 +180,13 @@ export const FrontDeskView: React.FC<FrontDeskViewProps> = ({
         />
 
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
             placeholder="Search guest, room #, phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="text-xs h-8 pl-8 pr-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 placeholder:text-gray-400 outline-none focus:border-blue-600 w-full sm:w-60"
+            className="text-xs h-9 pl-9 pr-3 bg-slate-50/80 hover:bg-white border border-slate-200/90 rounded-xl text-slate-800 placeholder:text-slate-400 font-medium outline-none focus:border-blue-600 w-full sm:w-64 transition-all shadow-2xs"
           />
         </div>
       </div>
@@ -189,15 +195,17 @@ export const FrontDeskView: React.FC<FrontDeskViewProps> = ({
       {activeTab === 'all' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Arrivals Column */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden flex flex-col">
-            <div className="px-4 py-3 bg-blue-50/50 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DoorOpen className="w-4 h-4 text-blue-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900">
+          <div className="bg-white/95 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] overflow-hidden flex flex-col">
+            <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <DoorOpen className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                   Today's Expected Arrivals
                 </h3>
               </div>
-              <span className="text-xs font-medium text-blue-700">
+              <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-md">
                 {checkedInArrivals}/{arrivals.length} Processed
               </span>
             </div>

@@ -65,39 +65,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Action-Oriented Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-2xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-gray-950 font-sans">
-              Good morning, {property ? property.name : 'SIGNINN Portfolio'}
-            </h1>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-              Live Operations
-            </span>
+      {/* Action-Oriented Header Card */}
+      <div className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200/90 p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-400" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 font-sans">
+                Good morning, {property ? property.name : 'SIGNINN Portfolio'}
+              </h1>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Operations
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+              Wednesday, 16 Sep 2026 • Here's what requires your front-desk and housekeeping attention today.
+            </p>
           </div>
-          <p className="text-xs text-gray-600 mt-1">
-            Wednesday, 16 Sep 2026 • Here's what requires your front-desk and housekeeping attention today.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('frontdesk')}
-            leftIcon={<DoorOpen className="w-3.5 h-3.5 text-blue-600" />}
-          >
-            Front Desk
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onNavigate('reservations')}
-            leftIcon={<Calendar className="w-3.5 h-3.5" />}
-          >
-            Tape Chart
-          </Button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => onNavigate('frontdesk')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            >
+              <DoorOpen className="w-4 h-4 text-blue-600" />
+              Front Desk
+            </button>
+            <button
+              onClick={() => onNavigate('reservations')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            >
+              <Calendar className="w-4 h-4 text-blue-400" />
+              Tape Chart
+            </button>
+          </div>
         </div>
       </div>
 
@@ -149,7 +152,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <PerformanceChart />
 
       {/* Secondary Operational Quick-Status Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <StatCard
           title="Arrivals Today"
           value={arrivalsToday.length}
@@ -182,32 +185,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Action Center (High-priority triage items) */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs">
-        <div className="flex items-center justify-between mb-3.5">
+      <div className="bg-white/95 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Operational Action Center
             </h2>
           </div>
-          <span className="text-xs text-gray-500">6 tasks requiring team resolution</span>
+          <span className="text-xs text-slate-400 font-medium">6 tasks requiring team resolution</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {/* Triage card 1: Dirty Rooms / Housekeeping */}
           <div
             onClick={() => onNavigate('housekeeping')}
-            className="p-3.5 rounded-lg border border-amber-200 bg-amber-50/40 hover:bg-amber-50 cursor-pointer transition-colors group flex items-start gap-3"
+            className="p-4 rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/60 to-white hover:bg-amber-50/80 cursor-pointer transition-all hover:shadow-xs group flex items-start gap-3"
           >
-            <div className="p-2 rounded-md bg-amber-100 text-amber-800 shrink-0">
+            <div className="p-2.5 rounded-xl bg-amber-100/80 text-amber-800 shrink-0 shadow-2xs">
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">4 Rooms Waiting for Housekeeping</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-700" />
+                <span className="text-xs font-bold text-slate-900">4 Rooms Waiting for Housekeeping</span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
               </div>
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-xs text-slate-600 mt-1 leading-snug">
                 Room 105 & 204 require turnover before 15:00 VIP arrivals.
               </p>
             </div>
@@ -216,17 +219,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Triage card 2: Unassigned arrival */}
           <div
             onClick={() => onNavigate('frontdesk')}
-            className="p-3.5 rounded-lg border border-blue-200 bg-blue-50/40 hover:bg-blue-50 cursor-pointer transition-colors group flex items-start gap-3"
+            className="p-4 rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50/60 to-white hover:bg-blue-50/80 cursor-pointer transition-all hover:shadow-xs group flex items-start gap-3"
           >
-            <div className="p-2 rounded-md bg-blue-100 text-blue-800 shrink-0">
+            <div className="p-2.5 rounded-xl bg-blue-100/80 text-blue-800 shrink-0 shadow-2xs">
               <BedDouble className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">1 Arrival Without Assigned Room</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-700" />
+                <span className="text-xs font-bold text-slate-900">1 Arrival Without Assigned Room</span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
               </div>
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-xs text-slate-600 mt-1 leading-snug">
                 RES-8935 (Harish Kumar, Walk-in) arriving ~13:00. Assign Deluxe King.
               </p>
             </div>
@@ -235,17 +238,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Triage card 3: OTA Sync Issue */}
           <div
             onClick={() => onNavigate('channels')}
-            className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/40 hover:bg-rose-50 cursor-pointer transition-colors group flex items-start gap-3"
+            className="p-4 rounded-xl border border-rose-200/80 bg-gradient-to-br from-rose-50/60 to-white hover:bg-rose-50/80 cursor-pointer transition-all hover:shadow-xs group flex items-start gap-3"
           >
-            <div className="p-2 rounded-md bg-rose-100 text-rose-800 shrink-0">
+            <div className="p-2.5 rounded-xl bg-rose-100/80 text-rose-800 shrink-0 shadow-2xs">
               <Radio className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-900">Airbnb Rate Mapping Disparity</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-700" />
+                <span className="text-xs font-bold text-slate-900">Airbnb Rate Mapping Disparity</span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
               </div>
-              <p className="text-[11px] text-gray-600 mt-1">
+              <p className="text-xs text-slate-600 mt-1 leading-snug">
                 Heritage Courtyard rate unmapped. Click to run Auto-Map.
               </p>
             </div>
@@ -256,17 +259,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Main Operational Two-Column Grid: Arrivals & Departures */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Today's Arrivals */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden flex flex-col">
-          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DoorOpen className="w-4 h-4 text-blue-600" />
-              <h3 className="text-sm font-bold text-gray-900">Today's Arrivals ({arrivalsToday.length})</h3>
+        <div className="bg-white/95 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] overflow-hidden flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                <DoorOpen className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Today's Arrivals ({arrivalsToday.length})</h3>
             </div>
             <button
               onClick={() => onNavigate('frontdesk')}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 cursor-pointer"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer"
             >
-              View in Front Desk <ArrowRight className="w-3 h-3" />
+              View in Front Desk <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -335,17 +340,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Today's Departures */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden flex flex-col">
-          <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <LogOut className="w-4 h-4 text-orange-600" />
-              <h3 className="text-sm font-bold text-gray-900">Today's Departures ({departuresToday.length})</h3>
+        <div className="bg-white/95 rounded-2xl border border-slate-200/90 shadow-[0_1px_3px_rgba(15,23,42,0.03)] overflow-hidden flex flex-col">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
+                <LogOut className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Today's Departures ({departuresToday.length})</h3>
             </div>
             <button
               onClick={() => onNavigate('frontdesk')}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 cursor-pointer"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer"
             >
-              View in Front Desk <ArrowRight className="w-3 h-3" />
+              View in Front Desk <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -405,13 +412,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Operational Breakdown Strip: Channel Share, Revenue Summary & Room Status */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Booking Channel Distribution */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Channel Distribution</h4>
-            <span className="text-[11px] text-gray-500">Past 30 days</span>
+        <div className="bg-white/95 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Channel Distribution</h4>
+            <span className="text-[11px] text-slate-400 font-medium">Past 30 days</span>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {[
               { name: 'Direct Website', share: 38, revenue: '₹4,12,000', color: 'bg-emerald-500' },
               { name: 'Booking.com', share: 29, revenue: '₹3,18,000', color: 'bg-blue-600' },
@@ -419,13 +426,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               { name: 'Agoda & Expedia', share: 10, revenue: '₹1,08,000', color: 'bg-sky-500' },
               { name: 'Walk-in / Direct', share: 5, revenue: '₹54,000', color: 'bg-purple-500' },
             ].map((c) => (
-              <div key={c.name} className="space-y-1">
+              <div key={c.name} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-700 font-medium">{c.name}</span>
-                  <span className="text-gray-900 font-semibold">{c.share}% ({c.revenue})</span>
+                  <span className="text-slate-700 font-medium">{c.name}</span>
+                  <span className="text-slate-900 font-bold">{c.share}% ({c.revenue})</span>
                 </div>
-                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full ${c.color} rounded-full`} style={{ width: `${c.share}%` }} />
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full ${c.color} rounded-full transition-all duration-300`} style={{ width: `${c.share}%` }} />
                 </div>
               </div>
             ))}
@@ -433,79 +440,79 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Room Status Breakdown */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Housekeeping & Rooms</h4>
+        <div className="bg-white/95 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)]">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Housekeeping & Rooms</h4>
             <button
               onClick={() => onNavigate('rooms')}
-              className="text-[11px] text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
             >
-              Room Rack
+              Room Rack →
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200">
-              <span className="text-emerald-800 font-medium block">Ready to Sell</span>
-              <span className="text-xl font-bold text-emerald-950 mt-1 block">{readyRooms}</span>
+          <div className="grid grid-cols-2 gap-2.5 text-xs">
+            <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
+              <span className="text-emerald-800 font-medium block text-xs">Ready to Sell</span>
+              <span className="text-2xl font-extrabold text-emerald-950 mt-1 block">{readyRooms}</span>
             </div>
-            <div className="p-2.5 rounded-lg bg-rose-50/70 border border-rose-200">
-              <span className="text-rose-800 font-medium block">Dirty / Turnover</span>
-              <span className="text-xl font-bold text-rose-950 mt-1 block">{dirtyRooms}</span>
+            <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200/70">
+              <span className="text-rose-800 font-medium block text-xs">Dirty / Turnover</span>
+              <span className="text-2xl font-extrabold text-rose-950 mt-1 block">{dirtyRooms}</span>
             </div>
-            <div className="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200">
-              <span className="text-blue-800 font-medium block">Occupied In-house</span>
-              <span className="text-xl font-bold text-blue-950 mt-1 block">{occupiedRooms}</span>
+            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/70">
+              <span className="text-blue-800 font-medium block text-xs">Occupied In-house</span>
+              <span className="text-2xl font-extrabold text-blue-950 mt-1 block">{occupiedRooms}</span>
             </div>
-            <div className="p-2.5 rounded-lg bg-orange-50/70 border border-orange-200">
-              <span className="text-orange-800 font-medium block">Maintenance / Out</span>
-              <span className="text-xl font-bold text-orange-950 mt-1 block">{maintenanceRooms}</span>
+            <div className="p-3 rounded-xl bg-orange-50/70 border border-orange-200/70">
+              <span className="text-orange-800 font-medium block text-xs">Maintenance / Out</span>
+              <span className="text-2xl font-extrabold text-orange-950 mt-1 block">{maintenanceRooms}</span>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600">
+          <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span>Average turnaround time:</span>
-            <span className="font-semibold text-gray-900">32 minutes</span>
+            <span className="font-bold text-slate-900">32 minutes</span>
           </div>
         </div>
 
         {/* Financial Highlights */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-2xs flex flex-col justify-between">
+        <div className="bg-white/95 rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-[0_1px_3px_rgba(15,23,42,0.03)] flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Financial Summary</h4>
-              <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-0.5">
-                <TrendingUp className="w-3 h-3" /> +12% vs LY
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Financial Summary</h4>
+              <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                <TrendingUp className="w-3.5 h-3.5 stroke-[2.5]" /> +12% vs LY
               </span>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <span className="text-gray-500">Today's Realized Revenue:</span>
-                <span className="text-sm font-bold text-gray-950">{formatCurrency(84500)}</span>
+            <div className="space-y-3.5 text-xs">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Today's Realized Revenue:</span>
+                <span className="text-sm font-extrabold text-slate-900">{formatCurrency(84500)}</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <span className="text-gray-500">Average Daily Rate (ADR):</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(4850)}</span>
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Average Daily Rate (ADR):</span>
+                <span className="font-bold text-slate-900">{formatCurrency(4850)}</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                <span className="text-gray-500">RevPAR (Per Available Room):</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(3977)}</span>
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">RevPAR (Per Available Room):</span>
+                <span className="font-bold text-slate-900">{formatCurrency(3977)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">Collections Pending:</span>
-                <span className="font-semibold text-amber-600">{formatCurrency(pendingPayments)}</span>
+                <span className="text-slate-500 font-medium">Collections Pending:</span>
+                <span className="font-bold text-amber-600">{formatCurrency(pendingPayments)}</span>
               </div>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-gray-100">
+          <div className="pt-4 border-t border-slate-100 mt-4">
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className="w-full justify-center text-xs font-semibold"
               onClick={() => onNavigate('reports')}
-              rightIcon={<ArrowRight className="w-3 h-3" />}
+              rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
             >
               Full Revenue Analytics
             </Button>

@@ -29,34 +29,34 @@ export const StatCard: React.FC<StatCardProps> = ({
   const isClickable = !!onClick;
 
   const variantStyles = {
-    default: 'bg-white border-gray-200 hover:border-gray-300',
-    alert: 'bg-red-50/50 border-red-200 hover:border-red-300',
-    success: 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300',
-    highlight: 'bg-blue-50/40 border-blue-200 hover:border-blue-300',
+    default: 'bg-white border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md hover:-translate-y-0.5',
+    alert: 'bg-gradient-to-br from-rose-50/70 via-white to-white border-rose-200/80 hover:border-rose-300 shadow-xs hover:shadow-md hover:-translate-y-0.5',
+    success: 'bg-gradient-to-br from-emerald-50/70 via-white to-white border-emerald-200/80 hover:border-emerald-300 shadow-xs hover:shadow-md hover:-translate-y-0.5',
+    highlight: 'bg-gradient-to-br from-blue-50/70 via-white to-white border-blue-200/80 hover:border-blue-300 shadow-xs hover:shadow-md hover:-translate-y-0.5',
   };
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        'p-4 rounded-xl border transition-all duration-150 relative group',
+        'p-4 sm:p-5 rounded-2xl border transition-all duration-200 relative group',
         variantStyles[variant],
-        isClickable && 'cursor-pointer hover:shadow-xs active:scale-[0.99]',
+        isClickable && 'cursor-pointer active:scale-[0.99]',
         className
       )}
     >
       <div className="flex items-start justify-between">
-        <span className="text-xs font-medium text-gray-500 tracking-tight">{title}</span>
-        {icon && <div className="text-gray-400 group-hover:text-gray-600 transition-colors">{icon}</div>}
+        <span className="text-xs font-semibold text-slate-500 tracking-tight">{title}</span>
+        {icon && <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 text-slate-500 group-hover:text-slate-800 transition-colors">{icon}</div>}
       </div>
 
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-2xl font-bold tracking-tight text-gray-950 font-sans">{value}</span>
+      <div className="mt-2.5 flex items-baseline gap-2">
+        <span className="text-2xl font-extrabold tracking-tight text-slate-900 font-sans">{value}</span>
         {change && (
           <span
             className={cn(
-              'inline-flex items-center text-[11px] font-semibold gap-0.5',
-              change.isPositive ? 'text-emerald-700' : 'text-red-600'
+              'inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded-md gap-0.5',
+              change.isPositive ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'
             )}
           >
             {change.isPositive ? (
@@ -69,7 +69,7 @@ export const StatCard: React.FC<StatCardProps> = ({
         )}
       </div>
 
-      {subtitle && <p className="mt-1 text-[11px] text-gray-500 font-normal leading-tight">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-xs text-slate-500 font-medium leading-tight">{subtitle}</p>}
     </div>
   );
 };

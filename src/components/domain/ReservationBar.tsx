@@ -67,9 +67,9 @@ export const ReservationBar: React.FC<ReservationBarProps> = ({
       {!compact && (
         <div className="flex items-center gap-1.5 shrink-0">
           <OTABadge
-            source={reservation.source}
+            source={reservation.bookingSource || reservation.source || (reservation as any).booking_source || 'Direct Website'}
             size="xs"
-            className="bg-black/20 border-white/20 text-white font-normal shadow-none hidden sm:inline-flex"
+            className="bg-black/25 border-white/20 text-white font-normal shadow-none hidden sm:inline-flex"
           />
           <span className="text-[10px] opacity-85 hidden xl:inline font-mono">
             {reservation.nights}n
