@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
   Globe, RefreshCw, Sliders, Mail, Calendar, FileSpreadsheet,
   Copy, Check, Play, Zap, ExternalLink, TrendingDown, TrendingUp,
@@ -202,7 +202,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                 {channels.map(ch => {
                   const isConnected = ch.status === "Connected";
                   const channelName = (ch.channelName as string) || "";
-                  const logo = OTA_LOGOS[channelName] || { initials: channelName.slice(0,2).toUpperCase() || "OT", color: "#64748b", bg: "#f1f5f9" };
+                  const logo = OTA_LOGOS[channelName] || { initials: channelName?.slice(0,2)?.toUpperCase() || "OT", color: "#64748b", bg: "#f1f5f9" };
                   const commission = ch.commissionRate || 0;
                   const revenue    = ch.revenueThisMonth || 0;
                   const netRev     = revenue - (revenue * commission) / 100;
@@ -335,7 +335,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                             const net = log.total_amount - (log.commission_amount || 0);
                             return (
                               <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                                <td className="px-3 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{log.created_at ? log.created_at.slice(0,16).replace("T"," ") : "Just now"}</td>
+                                <td className="px-3 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{log.created_at ? log.created_at?.slice(0,16)?.replace("T"," ") : "Just now"}</td>
                                 <td className="px-3 py-2.5"><Badge variant="channel" channel={log.channel} size="sm" /></td>
                                 <td className="px-3 py-2.5 font-mono font-semibold text-blue-600">{log.ota_reservation_id}</td>
                                 <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">{log.guest_name}</td>

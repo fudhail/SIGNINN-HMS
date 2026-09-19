@@ -131,9 +131,72 @@ def get_payments(
     return db.query(Payment).filter(Payment.tenant_id == auth.tenant_id).order_by(Payment.date.desc()).all()
 
 
+@router.post("/payments", status_code=status.HTTP_201_CREATED)
+def record_direct_payment(
+    req: RecordPaymentRequest,
+    auth: AuthContext = Depends(require_permission("payment.collect")),
+    db: Session = Depends(get_db),
+):
+    pay_id = generate_id("pay")
+    payment = Payment(
+        id=pay_id,
+        tenant_id=auth.tenant_id,
+        reservation_id=None,
+        reservation_ref=None,
+        guest_name="Front Desk Customer",
+        amount=req.amount,
+        currency="INR",
+        method=req.method,
+        status="Success",
+        date=datetime.utcnow().isoformat(),
+        reference=req.reference or f"DIR-{int(datetime.utcnow().timestamp())}",
+        notes=req.notes or "Front Desk Direct Settlement",
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return {
+        "id": payment.id,
+        "amount": payment.amount,
+        "method": payment.method,
+        "status": payment.status,
+        "date": payment.date,
+        "reference": payment.reference,
+        "guestName": payment.guest_name,
+    }
+
+
 @router.get("/invoices")
 def get_invoices(
     auth: AuthContext = Depends(require_permission("folio.view")),
     db: Session = Depends(get_db),
 ):
     return db.query(Invoice).filter(Invoice.tenant_id == auth.tenant_id).all()
+
+
+@router.post("/invoices", status_code=status.HTTP_201_CREATED)
+def create_invoice(
+    payload: dict,
+    auth: AuthContext = Depends(require_permission("folio.view")),
+    db: Session = Depends(get_db),
+):
+    import random
+    inv_id = generate_id("inv")
+    inv_num = f"INV-2026-{random.randint(10000, 99999)}"
+    inv = Invoice(
+        id=inv_id,
+        tenant_id=auth.tenant_id,
+        invoice_number=inv_num,
+        reservation_id=payload.get("reservationId"),
+        guest_name=payload.get("guestName", "Guest"),
+        room_number=payload.get("roomNumber", ""),
+        amount=float(payload.get("amount", 0.0)),
+        tax_amount=float(payload.get("taxAmount", float(payload.get("amount", 0.0)) * 0.12)),
+        status=payload.get("status", "Paid"),
+        issued_at=datetime.utcnow().isoformat(),
+        due_date=payload.get("dueDate", datetime.utcnow().isoformat()[:10]),
+    )
+    db.add(inv)
+    db.commit()
+    db.refresh(inv)
+    return inv

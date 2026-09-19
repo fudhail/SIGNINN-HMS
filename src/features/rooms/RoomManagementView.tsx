@@ -42,14 +42,20 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
   const [selectedHKStatus, setSelectedHKStatus] = useState<string>('all');
   const [selectedOccupancy, setSelectedOccupancy] = useState<string>('all');
 
+  const availableFloors = useMemo(() => {
+    return Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
+  }, [rooms]);
+
   const filteredRooms = useMemo(() => {
-    return rooms.filter((r) => {
-      if (selectedFloor !== 'all' && r.floor.toString() !== selectedFloor) return false;
-      if (selectedType !== 'all' && r.roomTypeId !== selectedType) return false;
-      if (selectedHKStatus !== 'all' && r.housekeepingStatus !== selectedHKStatus) return false;
-      if (selectedOccupancy !== 'all' && r.occupancyStatus !== selectedOccupancy) return false;
-      return true;
-    });
+    return rooms
+      .filter((r) => {
+        if (selectedFloor !== 'all' && r.floor.toString() !== selectedFloor) return false;
+        if (selectedType !== 'all' && r.roomTypeId !== selectedType) return false;
+        if (selectedHKStatus !== 'all' && r.housekeepingStatus !== selectedHKStatus) return false;
+        if (selectedOccupancy !== 'all' && r.occupancyStatus !== selectedOccupancy) return false;
+        return true;
+      })
+      .sort((a, b) => parseInt(a.roomNumber) - parseInt(b.roomNumber));
   }, [rooms, selectedFloor, selectedType, selectedHKStatus, selectedOccupancy]);
 
   const handleMarkClean = async (roomId: string, roomNumber: string) => {
@@ -71,7 +77,8 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
   };
 
   const handleToggleMaintenance = async (room: Room) => {
-    const newStatus = room.maintenanceStatus === 'Operational' ? 'Out of Order' : 'Operational';
+    const currentStatus = room.maintenanceStatus || 'Operational';
+    const newStatus = currentStatus === 'Operational' ? 'Out of Order' : 'Operational';
     await onUpdateMaintenanceStatus(room.id, newStatus);
     showToast({
       title: 'Maintenance Status Updated',
@@ -89,7 +96,7 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
             Room Inventory & Room Rack
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Physical room rack monitoring 30 rooms across 3 floors at APKA INN.
+            Physical room rack monitoring {rooms.length} rooms across {availableFloors.length} floors.
           </p>
         </div>
 
@@ -128,10 +135,12 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
           onChange={(e) => setSelectedFloor(e.target.value)}
           className="h-8 px-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 outline-none focus:border-blue-600"
         >
-          <option value="all">All Floors (1, 2, 3)</option>
-          <option value="1">Floor 1 (101-110)</option>
-          <option value="2">Floor 2 (201-210)</option>
-          <option value="3">Floor 3 (301-310)</option>
+          <option value="all">All Floors</option>
+          {availableFloors.map((floor) => (
+            <option key={floor} value={floor.toString()}>
+              Floor {floor}
+            </option>
+          ))}
         </select>
 
         <select
@@ -179,7 +188,7 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
           {filteredRooms.map((room) => {
             const isOccupied = room.occupancyStatus === 'Occupied';
             const isDirty = room.housekeepingStatus === 'Dirty';
-            const isOutOfOrder = room.maintenanceStatus !== 'Operational';
+            const isOutOfOrder = (room.maintenanceStatus || 'Operational') !== 'Operational';
 
             return (
               <div

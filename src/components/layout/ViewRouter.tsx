@@ -62,9 +62,18 @@ import {
   useUpdateChannelMarkupMutation,
   useToggleChannelStatusMutation,
   useForceChannelSyncMutation,
+  useCreateMaintenanceTicketMutation,
+  useUpdateMaintenanceTicketStatusMutation,
+  useUpdateHousekeepingTaskStatusMutation,
+  useToggleHousekeepingItemMutation,
+  useUpdateRatePlanMutation,
+  useMessageThreadsQuery,
+  useSendMessageMutation,
+  useUpdatePropertyMutation,
+  useAddStaffMutation,
+  useUpdateStaffStatusMutation,
+  useRecordDirectPaymentMutation,
 } from '../../services/api/queries';
-
-import * as mockServices from '../../services';
 
 export const ViewRouter: React.FC = () => {
   const { showToast } = useToast();
@@ -122,6 +131,17 @@ export const ViewRouter: React.FC = () => {
   const updateChannelMarkupMutation = useUpdateChannelMarkupMutation();
   const toggleChannelStatusMutation = useToggleChannelStatusMutation();
   const forceChannelSyncMutation = useForceChannelSyncMutation();
+  const createMaintenanceTicketMutation = useCreateMaintenanceTicketMutation();
+  const updateMaintenanceTicketStatusMutation = useUpdateMaintenanceTicketStatusMutation();
+  const updateHskTaskStatusMutation = useUpdateHousekeepingTaskStatusMutation();
+  const toggleHskItemMutation = useToggleHousekeepingItemMutation();
+  const updateRatePlanMutation = useUpdateRatePlanMutation();
+  const { data: messageThreads = [] } = useMessageThreadsQuery();
+  const sendMessageMutation = useSendMessageMutation();
+  const updatePropertyMutation = useUpdatePropertyMutation();
+  const addStaffMutation = useAddStaffMutation();
+  const updateStaffStatusMutation = useUpdateStaffStatusMutation();
+  const recordDirectPaymentMutation = useRecordDirectPaymentMutation();
 
   const currentTenant = tenants.find((t) => t.id === currentTenantId) || tenants[0];
   const isSuperAdmin = currentRole === 'SIGNINN Super Admin';
@@ -342,16 +362,20 @@ export const ViewRouter: React.FC = () => {
         <HousekeepingView
           tasks={housekeepingTasks}
           onToggleChecklistItem={async (taskId, itemId) => {
-            await mockServices.toggleChecklistItem(taskId, itemId);
+            await toggleHskItemMutation.mutateAsync({ taskId, itemId });
           }}
           onUpdateTaskStatus={async (taskId, status) => {
-            await mockServices.updateTaskStatus(taskId, status);
+            await updateHskTaskStatusMutation.mutateAsync({ taskId, status });
           }}
           onReportMaintenance={async (roomNumber, issue, priority) => {
             const room = rooms.find((r) => r.roomNumber === roomNumber);
-            await updateMntMutation.mutateAsync({
+            await createMaintenanceTicketMutation.mutateAsync({
               roomId: room?.id || `rm-${roomNumber}`,
-              status: 'Maintenance Required',
+              roomNumber,
+              title: issue,
+              description: `Housekeeping report: ${issue}`,
+              severity: priority,
+              reportedBy: 'Housekeeping Team',
             });
             showToast({
               title: 'Maintenance Ticket Created',
@@ -367,16 +391,16 @@ export const ViewRouter: React.FC = () => {
         <MaintenanceView
           tickets={maintenanceTickets}
           rooms={rooms}
-          onAddTicket={(ticket) => {
-            mockServices.addMaintenanceTicket(ticket);
+          onAddTicket={async (ticket) => {
+            await createMaintenanceTicketMutation.mutateAsync(ticket);
             showToast({
               title: 'Maintenance Ticket Added',
               description: ticket.title,
               type: 'success',
             });
           }}
-          onUpdateTicketStatus={(ticketId, status) => {
-            mockServices.updateTicketStatus(ticketId, status);
+          onUpdateTicketStatus={async (ticketId, status) => {
+            await updateMaintenanceTicketStatusMutation.mutateAsync({ ticketId, status });
           }}
         />
       );
@@ -387,7 +411,7 @@ export const ViewRouter: React.FC = () => {
           ratePlans={ratePlans}
           roomTypes={roomTypes}
           onUpdateRatePlan={async (plan) => {
-            await mockServices.updateRatePlan(plan);
+            await updateRatePlanMutation.mutateAsync(plan);
             showToast({
               title: 'Rate Plan Updated',
               description: `${plan.name} pricing synchronized.`,
@@ -446,9 +470,14 @@ export const ViewRouter: React.FC = () => {
     case 'messages':
       return (
         <MessagesView
-          threads={mockServices.getInitialData().messageThreads}
+          threads={messageThreads}
           onSendMessage={async (threadId, content) => {
-            await mockServices.sendMessage(threadId, content);
+            await sendMessageMutation.mutateAsync({ threadId, content });
+            showToast({
+              title: 'Message Sent',
+              description: 'Guest communication dispatched via channel gateway.',
+              type: 'success',
+            });
           }}
         />
       );
@@ -482,15 +511,10 @@ export const ViewRouter: React.FC = () => {
         <PaymentsView
           payments={payments}
           onRecordPayment={async (payment) => {
-            const recorded = {
-              ...payment,
-              id: `pay-${Date.now()}`,
-              status: 'Success' as const,
-              date: new Date().toISOString(),
-            };
+            const recorded = await recordDirectPaymentMutation.mutateAsync(payment);
             showToast({
               title: 'Payment Processed',
-              description: `INR ${payment.amount} recorded`,
+              description: `INR ${payment.amount} recorded successfully in financial ledger.`,
               type: 'success',
             });
             return recorded;
@@ -508,7 +532,7 @@ export const ViewRouter: React.FC = () => {
       return (
         <QrRoomServiceModal
           isOpen={true}
-          onClose={() => navigateTo('dashboard')}
+          onClose={() => setCurrentView('dashboard')}
           currentProperty={currentProperty}
           rooms={rooms}
         />
@@ -518,7 +542,7 @@ export const ViewRouter: React.FC = () => {
       return (
         <WhatsAppConciergeModal
           isOpen={true}
-          onClose={() => navigateTo('messages')}
+          onClose={() => setCurrentView('messages')}
           currentProperty={currentProperty}
         />
       );
@@ -528,14 +552,14 @@ export const ViewRouter: React.FC = () => {
         <SettingsView
           property={currentProperty}
           roomTypes={roomTypes}
-          onUpdateProperty={(prop) => {
-            mockServices.updateProperty(prop as any);
+          onUpdateProperty={async (prop) => {
             if (currentProperty) {
+              await updatePropertyMutation.mutateAsync({ ...prop, id: currentProperty.id });
               setCurrentProperty({ ...currentProperty, ...prop });
             }
             showToast({
               title: 'Hotel Property Updated',
-              description: `${prop.name || 'Property'} details saved.`,
+              description: `${prop.name || 'Property'} details saved to database.`,
               type: 'success',
             });
           }}
@@ -546,16 +570,24 @@ export const ViewRouter: React.FC = () => {
       return (
         <StaffRolesView
           staffList={staffList}
-          onAddStaff={(newStaff) => {
-            mockServices.addStaffMember(newStaff);
+          onAddStaff={async (newStaff) => {
+            await addStaffMutation.mutateAsync({
+              ...newStaff,
+              propertyId: currentProperty?.id || 'prop-1',
+            } as any);
             showToast({
               title: 'Staff Member Added',
               description: `${newStaff.name} assigned as ${newStaff.role}`,
               type: 'success',
             });
           }}
-          onUpdateStaffStatus={(staffId, status) => {
-            mockServices.updateStaffStatus(staffId, status);
+          onUpdateStaffStatus={async (staffId, status) => {
+            await updateStaffStatusMutation.mutateAsync({ staffId, status });
+            showToast({
+              title: 'Staff Status Updated',
+              description: `Status changed to ${status}`,
+              type: 'info',
+            });
           }}
         />
       );

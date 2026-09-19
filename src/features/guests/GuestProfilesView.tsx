@@ -249,8 +249,8 @@ export const GuestProfilesView: React.FC<GuestProfilesViewProps> = ({
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-800 border border-blue-200 flex items-center justify-center font-bold text-xs">
-                    {guest.firstName[0]}
-                    {guest.lastName[0]}
+                    {guest.firstName?.[0] || ''}
+                    {guest.lastName?.[0] || ''}
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-900 leading-tight">

@@ -1,6 +1,24 @@
 import { create } from 'zustand';
 import { UserRole, Property } from '../types';
 
+export function normalizeUserRole(role: unknown, isPlatformUser = false): UserRole {
+  if (isPlatformUser) return 'SIGNINN Super Admin';
+
+  const value = String(role || '').trim().toLowerCase();
+  if (value.includes('owner')) return 'Owner';
+  if (value.includes('group admin')) return 'Group Admin';
+  if (value.includes('property manager') || value.includes('general manager') || value === 'property_manager') {
+    return 'Property Manager';
+  }
+  if (value.includes('front desk')) return 'Front Desk';
+  if (value.includes('night auditor')) return 'Night Auditor';
+  if (value.includes('housekeeping')) return 'Housekeeping';
+  if (value.includes('maintenance')) return 'Maintenance';
+  if (value.includes('revenue')) return 'Revenue Manager';
+  if (value.includes('finance')) return 'Finance';
+  return 'Owner';
+}
+
 interface AppState {
   // Authentication and Multi-Tenant Context
   token: string | null;
@@ -97,7 +115,10 @@ export const useAppStore = create<AppState>((set) => ({
     if (session.token) {
       localStorage.setItem('signinn_token', session.token);
     }
-    const roleName = session.role?.name || (session.isPlatformUser ? 'SIGNINN Super Admin' : 'Owner');
+    const roleName = normalizeUserRole(
+      session.role?.name || session.role?.code,
+      session.isPlatformUser
+    );
     const firstProp = session.permittedProperties && session.permittedProperties.length > 0
       ? (session.permittedProperties[0] as Property)
       : null;

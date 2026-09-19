@@ -32,7 +32,6 @@ import {
   Building2,
 } from 'lucide-react';
 import { Tenant, TenantPlan, TenantStatus, PlatformMetrics, PLAN_DEFINITIONS, ADDON_DEFINITIONS } from '../../types';
-import { mockOtaGateways, PlatformOtaGateway } from '../../mocks/mockTenants';
 import { formatCurrency } from '../../utils/formatters';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';

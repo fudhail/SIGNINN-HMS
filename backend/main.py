@@ -28,6 +28,7 @@ from backend.routers import (
     audit,
     ota_ingestion,
     ical,
+    messages,
 )
 
 
@@ -73,17 +74,32 @@ app.include_router(rates.router)
 app.include_router(audit.router)
 app.include_router(ota_ingestion.router)
 app.include_router(ical.router)
+app.include_router(messages.router)
 
 
-@app.get("/")
-def root():
-    return {
-        "system": "SIGNINN HMS",
-        "status": "Operational",
-        "version": "1.0.0",
-        "docs": "/docs",
-    }
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
+# Serve built React frontend if dist directory exists
+dist_dir = Path(__file__).resolve().parent.parent / "dist"
+if dist_dir.exists():
+    app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str):
+        file_path = dist_dir / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(dist_dir / "index.html")
+else:
+    @app.get("/")
+    def root():
+        return {
+            "system": "SIGNINN HMS",
+            "status": "Operational",
+            "version": "1.0.0",
+            "docs": "/docs",
+        }
 
 @app.get("/api/health")
 def health_check():

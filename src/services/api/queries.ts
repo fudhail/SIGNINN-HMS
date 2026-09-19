@@ -144,13 +144,23 @@ export function useRoomsQuery(propertyId?: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.rooms(currentTenantId, propertyId),
     queryFn: async () => {
-      try {
-        const query = propertyId ? `?property_id=${propertyId}` : '';
-        return await apiRequest<Room[]>(`/api/rooms${query}`);
-      } catch {
-        const all = mockServices.getInitialData().rooms;
-        return propertyId ? all.filter((r) => r.propertyId === propertyId) : all;
-      }
+      const query = propertyId ? `?property_id=${propertyId}` : '';
+      const rawList = await apiRequest<any[]>(`/api/rooms${query}`);
+      return rawList.map((room: any): Room => ({
+        ...room,
+        propertyId: room.propertyId || room.property_id || propertyId || '',
+        roomNumber: room.roomNumber || room.room_number,
+        roomTypeId: room.roomTypeId || room.room_type_id || '',
+        roomTypeName: room.roomTypeName || room.room_type_name || '',
+        occupancyStatus: room.occupancyStatus || room.occupancy_status || 'Vacant',
+        housekeepingStatus: room.housekeepingStatus || room.housekeeping_status || 'Clean',
+        maintenanceStatus: room.maintenanceStatus || room.maintenance_status || 'Operational',
+        currentReservationId: room.currentReservationId || room.current_reservation_id,
+        currentGuestName: room.currentGuestName || room.current_guest_name,
+        nextArrivalDate: room.nextArrivalDate || room.next_arrival_date,
+        maintenanceNotes: room.maintenanceNotes || room.maintenance_notes,
+        keyCardAssigned: room.keyCardAssigned ?? room.key_card_assigned,
+      }));
     },
   });
 }
@@ -454,26 +464,28 @@ export function useCheckInMutation() {
       advancePaid: number;
       method?: string;
     }) => {
-      try {
-        return await apiRequest(`/api/reservations/${resId}/check-in`, {
-          method: 'POST',
-          body: JSON.stringify({
-            room_id: roomId,
-            advance_paid: advancePaid,
-            payment_method: method,
-          }),
-        });
-      } catch {
-        await mockServices.updateReservationStatus(resId, 'Checked In', roomId);
-        if (advancePaid > 0) {
-          const folio = mockServices.getInitialData().folios.find((f) => f.reservationId === resId);
-          if (folio) {
-            await mockServices.recordPayment(folio.id, advancePaid, method as any, `CKIN-${Date.now()}`);
-          }
-        }
-      }
+      return await apiRequest(`/api/reservations/${resId}/check-in`, {
+        method: 'POST',
+        body: JSON.stringify({
+          room_id: roomId,
+          advance_paid: advancePaid,
+          payment_method: method,
+        }),
+      });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.setQueriesData<Room[]>({ queryKey: ['rooms'] }, (rooms) =>
+        rooms?.map((room) =>
+          room.id === variables.roomId
+            ? {
+                ...room,
+                occupancyStatus: 'Occupied',
+                currentReservationId: variables.resId,
+                keyCardAssigned: true,
+              }
+            : room
+        )
+      );
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       queryClient.invalidateQueries({ queryKey: ['folios'] });
@@ -584,6 +596,123 @@ export function useUpdateMaintenanceMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+    },
+  });
+}
+
+export function useCreateMaintenanceTicketMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ticket: any) => {
+      try {
+        return await apiRequest('/api/maintenance/tickets', {
+          method: 'POST',
+          body: JSON.stringify({
+            room_id: ticket.roomId,
+            room_number: ticket.roomNumber,
+            title: ticket.title,
+            description: ticket.description || '',
+            priority: ticket.priority || ticket.severity || 'Medium',
+            reported_by: ticket.reportedBy || 'Front Desk',
+            category: ticket.category || 'General',
+          }),
+        });
+      } catch {
+        return await mockServices.addMaintenanceTicket(ticket);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useUpdateMaintenanceTicketStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: string }) => {
+      try {
+        return await apiRequest(`/api/maintenance/tickets/${ticketId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+      } catch {
+        return await mockServices.updateTicketStatus(ticketId, status as any);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useUpdateHousekeepingTaskStatusMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
+      try {
+        return await apiRequest(`/api/housekeeping/tasks/${taskId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+      } catch {
+        return await mockServices.updateTaskStatus(taskId, status as any);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useToggleHousekeepingItemMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ taskId, itemId }: { taskId: string; itemId: string }) => {
+      try {
+        return await apiRequest(`/api/housekeeping/tasks/${taskId}/toggle-item`, {
+          method: 'POST',
+          body: JSON.stringify({ itemId }),
+        });
+      } catch {
+        return await mockServices.toggleChecklistItem(taskId, itemId);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['housekeeping'] });
+    },
+  });
+}
+
+export function useUpdateRatePlanMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (plan: any) => {
+      try {
+        return await apiRequest(`/api/rates/${plan.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: plan.name,
+            base_price_multiplier: plan.basePriceMultiplier || plan.base_price_multiplier,
+            cancellation_policy: plan.cancellationPolicy || plan.cancellation_policy,
+            min_stay: plan.minStay || plan.min_stay,
+            meal_plan: plan.mealPlan || plan.meal_plan,
+          }),
+        });
+      } catch {
+        return await mockServices.updateRatePlan(plan);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ratePlans'] });
     },
   });
 }
@@ -928,6 +1057,106 @@ export function useForceChannelSyncMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+// ==========================================
+// PROPERTY & STAFF MUTATIONS
+// ==========================================
+export function useUpdatePropertyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (prop: Partial<Property> & { id: string }) => {
+      return await apiRequest<Property>(`/api/properties/${prop.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(prop),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+  });
+}
+
+export function useAddStaffMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (newStaff: Partial<StaffMember>) => {
+      return await apiRequest<StaffMember>('/api/staff-audit/staff', {
+        method: 'POST',
+        body: JSON.stringify(newStaff),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    },
+  });
+}
+
+export function useUpdateStaffStatusMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ staffId, status }: { staffId: string; status: string }) => {
+      return await apiRequest<any>(`/api/staff-audit/staff/${staffId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    },
+  });
+}
+
+// ==========================================
+// MESSAGES & GUEST COMMUNICATIONS
+// ==========================================
+export function useMessageThreadsQuery() {
+  const currentTenantId = useAppStore((state) => state.currentTenantId);
+  return useQuery({
+    queryKey: ['messages', currentTenantId],
+    queryFn: async () => {
+      return await apiRequest<any[]>('/api/messages/threads');
+    },
+  });
+}
+
+export function useSendMessageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ threadId, content }: { threadId: string; content: string }) => {
+      return await apiRequest<any>(`/api/messages/threads/${threadId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, sender: 'hotel' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+
+// ==========================================
+// DIRECT PAYMENT RECORDING
+// ==========================================
+export function useRecordDirectPaymentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentData: any) => {
+      return await apiRequest<any>('/api/billing/payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: paymentData.amount,
+          method: paymentData.method,
+          reference: paymentData.reference,
+          notes: paymentData.notes,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['folios'] });
     },
   });
 }

@@ -20,7 +20,7 @@ import { UserRole } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { apiRequest } from '../../services/api/apiClient';
-import { useAppStore } from '../../stores/useAppStore';
+import { normalizeUserRole, useAppStore } from '../../stores/useAppStore';
 
 export interface AuthViewProps {
   onLoginSuccess: (user: {
@@ -101,7 +101,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
           type: 'success',
         });
 
-        const effectiveRole = (authData.role?.name || (authData.is_platform_user ? 'SIGNINN Super Admin' : 'Owner')) as UserRole;
+        const effectiveRole = normalizeUserRole(
+          authData.role?.name || authData.role?.code,
+          authData.is_platform_user
+        );
 
         onLoginSuccess({
           name: authData.user?.name || fullName,

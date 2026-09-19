@@ -481,3 +481,34 @@ class OtaIngestionLog(Base):
     created_at = Column(String(50), default=lambda: datetime.utcnow().isoformat())
     raw_payload_snippet = Column(Text, nullable=True)
 
+
+class MessageThread(Base):
+    __tablename__ = "message_threads"
+
+    id = Column(String(64), primary_key=True, index=True)
+    tenant_id = Column(String(64), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    property_id = Column(String(64), nullable=True)
+    guest_name = Column(String(255), nullable=False)
+    guest_phone = Column(String(50), default="")
+    room_number = Column(String(50), nullable=True)
+    reservation_ref = Column(String(100), nullable=True)
+    channel = Column(String(50), default="WhatsApp")  # WhatsApp, SMS, Email
+    unread_count = Column(Integer, default=0)
+    created_at = Column(String(50), default=lambda: datetime.utcnow().isoformat())
+    last_message_at = Column(String(50), default=lambda: datetime.utcnow().isoformat())
+
+    messages = relationship("Message", back_populates="thread", cascade="all, delete-orphan", order_by="Message.timestamp")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(String(64), primary_key=True, index=True)
+    thread_id = Column(String(64), ForeignKey("message_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender = Column(String(50), nullable=False)  # hotel, guest
+    content = Column(Text, nullable=False)
+    timestamp = Column(String(50), default=lambda: datetime.utcnow().isoformat())
+    status = Column(String(50), default="read")  # sent, delivered, read
+
+    thread = relationship("MessageThread", back_populates="messages")
+

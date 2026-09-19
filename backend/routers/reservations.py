@@ -14,6 +14,8 @@ from backend.models import (
     Payment,
     AuditLog,
     Property,
+    HousekeepingTask,
+    Invoice,
     generate_id,
 )
 from backend.schemas import (
@@ -123,7 +125,7 @@ def create_reservation(
         nights=res_in.nights,
         adults=res_in.adults,
         children=res_in.children,
-        status="Confirmed",
+        status=res_in.status if res_in.status in ["Confirmed", "Checked In"] else "Confirmed",
         booking_source=res_in.booking_source,
         nightly_rate=res_in.nightly_rate or (res_in.total_amount / max(1, res_in.nights)),
         total_amount=res_in.total_amount,
@@ -135,6 +137,17 @@ def create_reservation(
         eta=res_in.eta or "14:00",
     )
     db.add(new_res)
+
+    # If reservation was created directly in 'Checked In' state (e.g. Walk-In), immediately occupy room
+    if new_res.status == "Checked In" and res_in.room_id:
+        room = db.query(Room).filter(Room.id == res_in.room_id, Room.tenant_id == tenant_id).first()
+        if room:
+            room.occupancy_status = "Occupied"
+            room.current_reservation_id = new_res.id
+            room.current_guest_name = guest_name
+            room.key_card_assigned = True
+            new_res.room_number = room.room_number
+
     db.commit()
 
     # 4. Automatically generate Folio for the booking
@@ -180,6 +193,21 @@ def create_reservation(
             reference=f"DEP-{ref_code}",
         )
         db.add(p_item)
+
+        # Also insert record into global Payment table for financial ledger consistency
+        db.add(Payment(
+            id=generate_id("pay"),
+            tenant_id=tenant_id,
+            reservation_id=res_id,
+            reservation_ref=ref_code,
+            guest_name=guest_name,
+            amount=res_in.paid_amount,
+            currency="INR",
+            method="UPI",
+            status="Success",
+            reference=f"DEP-{ref_code}",
+            notes="Booking Advance Deposit",
+        ))
 
     db.commit()
     db.refresh(new_res)
@@ -284,7 +312,7 @@ def check_out_guest(
     if not res:
         raise HTTPException(status_code=404, detail="Reservation not found")
 
-    # Release room
+    # Release room and queue Housekeeping turnover task
     if res.room_id:
         room = db.query(Room).filter(Room.id == res.room_id, Room.tenant_id == tenant_id).first()
         if room:
@@ -293,6 +321,28 @@ def check_out_guest(
             room.current_reservation_id = None
             room.current_guest_name = None
             room.key_card_assigned = False
+
+            # Create an operational Housekeeping turnover clean task
+            hsk_task = HousekeepingTask(
+                id=generate_id("tsk"),
+                tenant_id=tenant_id,
+                room_id=room.id,
+                room_number=room.room_number,
+                room_type=room.room_type_name or "Standard Room",
+                task_type="Turnover Clean",
+                priority="High",
+                status="Dirty",
+                assigned_to="Housekeeping Team",
+                estimated_minutes=35,
+                checklist=[
+                    {"id": "c1", "label": "Strip bed linens & sanitize mattress", "done": False},
+                    {"id": "c2", "label": "Sanitize bathroom fixtures & restock towels", "done": False},
+                    {"id": "c3", "label": "Vacuum & mop floors", "done": False},
+                    {"id": "c4", "label": "Replenish toiletries & minibar items", "done": False},
+                    {"id": "c5", "label": "Inspect AC, lights & electronic door lock", "done": False},
+                ],
+            )
+            db.add(hsk_task)
 
     # Process settlement if needed
     if req.settlement_amount > 0:
@@ -333,13 +383,30 @@ def check_out_guest(
 
     res.status = "Checked Out"
 
+    # Automatically generate official Tax Invoice upon checkout settlement
+    inv_num = f"INV-2026-{random.randint(10000, 99999)}"
+    invoice = Invoice(
+        id=generate_id("inv"),
+        tenant_id=tenant_id,
+        invoice_number=inv_num,
+        reservation_id=res.id,
+        guest_name=f"{res.guest.first_name} {res.guest.last_name}" if res.guest else "Guest",
+        room_number=res.room_number or "",
+        amount=res.total_amount,
+        tax_amount=res.total_amount * 0.12,
+        status="Paid",
+        issued_at=datetime.utcnow().isoformat(),
+        due_date=datetime.utcnow().isoformat()[:10],
+    )
+    db.add(invoice)
+
     db.add(AuditLog(
         id=generate_id("log"),
         tenant_id=tenant_id,
         staff_name="Front Desk Operator",
         action="Check-Out",
         entity_id=res.id,
-        details=f"Reservation {res.ref_code} checked out. Room released for housekeeping turnover.",
+        details=f"Reservation {res.ref_code} checked out. Room released for housekeeping turnover. Invoice {inv_num} generated.",
     ))
 
     db.commit()
@@ -370,7 +437,7 @@ def reassign_room(
 
     # If guest is already checked in, release previous room
     if res.status == "Checked In" and res.room_id and res.room_id != new_room_id:
-        old_room = db.query(Room).filter(Room.id == res.room_id).first()
+        old_room = db.query(Room).filter(Room.id == res.room_id, Room.tenant_id == tenant_id).first()
         if old_room:
             old_room.occupancy_status = "Vacant"
             old_room.housekeeping_status = "Dirty"
