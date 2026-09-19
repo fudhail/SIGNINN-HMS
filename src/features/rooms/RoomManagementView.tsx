@@ -77,7 +77,8 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
   };
 
   const handleToggleMaintenance = async (room: Room) => {
-    const newStatus = room.maintenanceStatus === 'Operational' ? 'Out of Order' : 'Operational';
+    const currentStatus = room.maintenanceStatus || 'Operational';
+    const newStatus = currentStatus === 'Operational' ? 'Out of Order' : 'Operational';
     await onUpdateMaintenanceStatus(room.id, newStatus);
     showToast({
       title: 'Maintenance Status Updated',
@@ -187,7 +188,7 @@ export const RoomManagementView: React.FC<RoomManagementViewProps> = ({
           {filteredRooms.map((room) => {
             const isOccupied = room.occupancyStatus === 'Occupied';
             const isDirty = room.housekeepingStatus === 'Dirty';
-            const isOutOfOrder = room.maintenanceStatus !== 'Operational';
+            const isOutOfOrder = (room.maintenanceStatus || 'Operational') !== 'Operational';
 
             return (
               <div

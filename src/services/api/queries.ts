@@ -144,13 +144,23 @@ export function useRoomsQuery(propertyId?: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.rooms(currentTenantId, propertyId),
     queryFn: async () => {
-      try {
-        const query = propertyId ? `?property_id=${propertyId}` : '';
-        return await apiRequest<Room[]>(`/api/rooms${query}`);
-      } catch {
-        const all = mockServices.getInitialData().rooms;
-        return propertyId ? all.filter((r) => r.propertyId === propertyId) : all;
-      }
+      const query = propertyId ? `?property_id=${propertyId}` : '';
+      const rawList = await apiRequest<any[]>(`/api/rooms${query}`);
+      return rawList.map((room: any): Room => ({
+        ...room,
+        propertyId: room.propertyId || room.property_id || propertyId || '',
+        roomNumber: room.roomNumber || room.room_number,
+        roomTypeId: room.roomTypeId || room.room_type_id || '',
+        roomTypeName: room.roomTypeName || room.room_type_name || '',
+        occupancyStatus: room.occupancyStatus || room.occupancy_status || 'Vacant',
+        housekeepingStatus: room.housekeepingStatus || room.housekeeping_status || 'Clean',
+        maintenanceStatus: room.maintenanceStatus || room.maintenance_status || 'Operational',
+        currentReservationId: room.currentReservationId || room.current_reservation_id,
+        currentGuestName: room.currentGuestName || room.current_guest_name,
+        nextArrivalDate: room.nextArrivalDate || room.next_arrival_date,
+        maintenanceNotes: room.maintenanceNotes || room.maintenance_notes,
+        keyCardAssigned: room.keyCardAssigned ?? room.key_card_assigned,
+      }));
     },
   });
 }
