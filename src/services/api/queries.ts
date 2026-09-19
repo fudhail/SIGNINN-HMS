@@ -464,26 +464,28 @@ export function useCheckInMutation() {
       advancePaid: number;
       method?: string;
     }) => {
-      try {
-        return await apiRequest(`/api/reservations/${resId}/check-in`, {
-          method: 'POST',
-          body: JSON.stringify({
-            room_id: roomId,
-            advance_paid: advancePaid,
-            payment_method: method,
-          }),
-        });
-      } catch {
-        await mockServices.updateReservationStatus(resId, 'Checked In', roomId);
-        if (advancePaid > 0) {
-          const folio = mockServices.getInitialData().folios.find((f) => f.reservationId === resId);
-          if (folio) {
-            await mockServices.recordPayment(folio.id, advancePaid, method as any, `CKIN-${Date.now()}`);
-          }
-        }
-      }
+      return await apiRequest(`/api/reservations/${resId}/check-in`, {
+        method: 'POST',
+        body: JSON.stringify({
+          room_id: roomId,
+          advance_paid: advancePaid,
+          payment_method: method,
+        }),
+      });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.setQueriesData<Room[]>({ queryKey: ['rooms'] }, (rooms) =>
+        rooms?.map((room) =>
+          room.id === variables.roomId
+            ? {
+                ...room,
+                occupancyStatus: 'Occupied',
+                currentReservationId: variables.resId,
+                keyCardAssigned: true,
+              }
+            : room
+        )
+      );
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       queryClient.invalidateQueries({ queryKey: ['folios'] });
