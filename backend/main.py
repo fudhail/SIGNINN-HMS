@@ -28,6 +28,7 @@ from backend.routers import (
     audit,
     ota_ingestion,
     ical,
+    messages,
 )
 
 
@@ -73,6 +74,7 @@ app.include_router(rates.router)
 app.include_router(audit.router)
 app.include_router(ota_ingestion.router)
 app.include_router(ical.router)
+app.include_router(messages.router)
 
 
 from fastapi.staticfiles import StaticFiles

@@ -67,7 +67,7 @@ export const NewReservationModal: React.FC<NewReservationModalProps> = ({
     )
   );
 
-  const baseRate = selectedRoomType ? selectedRoomType.basePrice : 4500;
+  const baseRate = (selectedRoomType && selectedRoomType.basePrice != null && !isNaN(Number(selectedRoomType.basePrice))) ? Number(selectedRoomType.basePrice) : 4500;
   const mealAddon = mealPlan === 'CP' ? 600 * nights * adults : mealPlan === 'MAP' ? 1400 * nights * adults : 0;
   const transferAddon = airportTransfer ? 1500 : 0;
   const extraBedAddon = extraBed ? 1000 * nights : 0;
@@ -250,7 +250,7 @@ export const NewReservationModal: React.FC<NewReservationModalProps> = ({
                 onChange={(e) => setRoomTypeId(e.target.value)}
                 options={roomTypes.map((rt) => ({
                   value: rt.id,
-                  label: `${rt.name} (${formatCurrency(rt.basePrice)}/night)`,
+                  label: `${rt.name} (${formatCurrency(rt.basePrice != null && !isNaN(Number(rt.basePrice)) ? Number(rt.basePrice) : 4500)}/night)`,
                 }))}
               />
 

@@ -67,9 +67,13 @@ import {
   useUpdateHousekeepingTaskStatusMutation,
   useToggleHousekeepingItemMutation,
   useUpdateRatePlanMutation,
+  useMessageThreadsQuery,
+  useSendMessageMutation,
+  useUpdatePropertyMutation,
+  useAddStaffMutation,
+  useUpdateStaffStatusMutation,
+  useRecordDirectPaymentMutation,
 } from '../../services/api/queries';
-
-import * as mockServices from '../../services';
 
 export const ViewRouter: React.FC = () => {
   const { showToast } = useToast();
@@ -132,6 +136,12 @@ export const ViewRouter: React.FC = () => {
   const updateHskTaskStatusMutation = useUpdateHousekeepingTaskStatusMutation();
   const toggleHskItemMutation = useToggleHousekeepingItemMutation();
   const updateRatePlanMutation = useUpdateRatePlanMutation();
+  const { data: messageThreads = [] } = useMessageThreadsQuery();
+  const sendMessageMutation = useSendMessageMutation();
+  const updatePropertyMutation = useUpdatePropertyMutation();
+  const addStaffMutation = useAddStaffMutation();
+  const updateStaffStatusMutation = useUpdateStaffStatusMutation();
+  const recordDirectPaymentMutation = useRecordDirectPaymentMutation();
 
   const currentTenant = tenants.find((t) => t.id === currentTenantId) || tenants[0];
   const isSuperAdmin = currentRole === 'SIGNINN Super Admin';
@@ -460,9 +470,14 @@ export const ViewRouter: React.FC = () => {
     case 'messages':
       return (
         <MessagesView
-          threads={mockServices.getInitialData().messageThreads}
+          threads={messageThreads}
           onSendMessage={async (threadId, content) => {
-            await mockServices.sendMessage(threadId, content);
+            await sendMessageMutation.mutateAsync({ threadId, content });
+            showToast({
+              title: 'Message Sent',
+              description: 'Guest communication dispatched via channel gateway.',
+              type: 'success',
+            });
           }}
         />
       );
@@ -496,15 +511,10 @@ export const ViewRouter: React.FC = () => {
         <PaymentsView
           payments={payments}
           onRecordPayment={async (payment) => {
-            const recorded = {
-              ...payment,
-              id: `pay-${Date.now()}`,
-              status: 'Success' as const,
-              date: new Date().toISOString(),
-            };
+            const recorded = await recordDirectPaymentMutation.mutateAsync(payment);
             showToast({
               title: 'Payment Processed',
-              description: `INR ${payment.amount} recorded`,
+              description: `INR ${payment.amount} recorded successfully in financial ledger.`,
               type: 'success',
             });
             return recorded;
@@ -542,14 +552,14 @@ export const ViewRouter: React.FC = () => {
         <SettingsView
           property={currentProperty}
           roomTypes={roomTypes}
-          onUpdateProperty={(prop) => {
-            mockServices.updateProperty(prop as any);
+          onUpdateProperty={async (prop) => {
             if (currentProperty) {
+              await updatePropertyMutation.mutateAsync({ ...prop, id: currentProperty.id });
               setCurrentProperty({ ...currentProperty, ...prop });
             }
             showToast({
               title: 'Hotel Property Updated',
-              description: `${prop.name || 'Property'} details saved.`,
+              description: `${prop.name || 'Property'} details saved to database.`,
               type: 'success',
             });
           }}
@@ -560,16 +570,24 @@ export const ViewRouter: React.FC = () => {
       return (
         <StaffRolesView
           staffList={staffList}
-          onAddStaff={(newStaff) => {
-            mockServices.addStaffMember(newStaff);
+          onAddStaff={async (newStaff) => {
+            await addStaffMutation.mutateAsync({
+              ...newStaff,
+              propertyId: currentProperty?.id || 'prop-1',
+            } as any);
             showToast({
               title: 'Staff Member Added',
               description: `${newStaff.name} assigned as ${newStaff.role}`,
               type: 'success',
             });
           }}
-          onUpdateStaffStatus={(staffId, status) => {
-            mockServices.updateStaffStatus(staffId, status);
+          onUpdateStaffStatus={async (staffId, status) => {
+            await updateStaffStatusMutation.mutateAsync({ staffId, status });
+            showToast({
+              title: 'Staff Status Updated',
+              description: `Status changed to ${status}`,
+              type: 'info',
+            });
           }}
         />
       );

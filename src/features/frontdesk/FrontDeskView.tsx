@@ -41,7 +41,7 @@ export const FrontDeskView: React.FC<FrontDeskViewProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'arrivals' | 'departures' | 'inhouse' | 'roomrack'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const today = '2026-09-16';
+  const today = new Date().toISOString().split('T')[0];
 
   const arrivals = reservations.filter((r) => r.checkInDate === today && r.status !== 'Cancelled');
   const checkedInArrivals = arrivals.filter((r) => r.status === 'Checked In').length;

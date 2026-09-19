@@ -44,7 +44,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCheckIn,
   onOpenCheckOut,
 }) => {
-  const today = '2026-09-16';
+  const today = new Date().toISOString().split('T')[0];
 
   const arrivalsToday = reservations.filter((r) => r.checkInDate === today && r.status !== 'Cancelled');
   const departuresToday = reservations.filter((r) => r.checkOutDate === today && r.status !== 'Checked Out');

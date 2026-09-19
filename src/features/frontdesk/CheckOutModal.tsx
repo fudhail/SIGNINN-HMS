@@ -227,7 +227,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
               </div>
               <div className="text-right">
                 <div>INV-2026-{reservation.refCode.replace('RES-', '')}</div>
-                <div className="text-[10px] text-gray-500">Date: 2026-09-16</div>
+                <div className="text-[10px] text-gray-500">Date: {new Date().toISOString().split('T')[0]}</div>
               </div>
             </div>
 

@@ -34,6 +34,8 @@ from backend.models import (
     TenantMembership,
     PropertyAccess,
     OtaIngestionLog,
+    MessageThread,
+    Message,
 )
 
 INDIAN_FIRST_NAMES = [
@@ -891,6 +893,157 @@ def seed_50_rooms_yearly():
             entity_id="prop-1",
             details=details,
         ))
+
+    # 9. Seed Staff Members
+    staff_members = [
+        StaffMember(
+            id="stf-1",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Vikramaditya Roy",
+            email="roy@grandazuregoa.com",
+            phone="+91 98201 55432",
+            role="Owner",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-2",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Devendra Joshi",
+            email="devendra.joshi@grandazuregoa.com",
+            phone="+91 832 991 0021",
+            role="Front Desk",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-3",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Sunita Patil",
+            email="sunita.hsk@grandazuregoa.com",
+            phone="+91 832 991 0033",
+            role="Housekeeping",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-4",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Marcus Fernandes",
+            email="marcus.rev@grandazuregoa.com",
+            phone="+91 832 991 0044",
+            role="Revenue Manager",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-5",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Rajesh Kumar",
+            email="rajesh.mnt@grandazuregoa.com",
+            phone="+91 832 991 0055",
+            role="Maintenance",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-6",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Kiran Patel",
+            email="kiran.na@grandazuregoa.com",
+            phone="+91 832 991 0066",
+            role="Night Auditor",
+            status="Active",
+        ),
+        StaffMember(
+            id="stf-7",
+            tenant_id="tenant-1",
+            property_id="prop-1",
+            name="Arun Menon",
+            email="arun.fin@grandazuregoa.com",
+            phone="+91 832 991 0077",
+            role="Finance",
+            status="Active",
+        ),
+    ]
+    for s in staff_members:
+        db.add(s)
+
+    # 10. Seed Initial Message Threads & Messages
+    t1 = MessageThread(
+        id="msg-1",
+        tenant_id="tenant-1",
+        property_id="prop-1",
+        guest_name="Aarav Mehta",
+        guest_phone="+91 98200 11223",
+        room_number="102",
+        reservation_ref="SGN-26-4412",
+        channel="WhatsApp",
+        unread_count=0,
+        created_at="2026-09-19T08:30:00",
+        last_message_at="2026-09-19T09:15:00",
+    )
+    db.add(t1)
+
+    m1_1 = Message(
+        id="m-101",
+        thread_id="msg-1",
+        sender="hotel",
+        content="Welcome to Grand Azure Resort! Your room #102 is ready. High-speed Wi-Fi password is AzureGuest2026.",
+        timestamp="2026-09-19T08:31:00",
+        status="read",
+    )
+    m1_2 = Message(
+        id="m-102",
+        thread_id="msg-1",
+        sender="guest",
+        content="Thank you! Could we request extra pool towels to the room?",
+        timestamp="2026-09-19T09:12:00",
+        status="read",
+    )
+    m1_3 = Message(
+        id="m-103",
+        thread_id="msg-1",
+        sender="hotel",
+        content="Certainly Mr. Mehta, housekeeping has dispatched fresh pool towels to Room 102.",
+        timestamp="2026-09-19T09:15:00",
+        status="sent",
+    )
+    db.add_all([m1_1, m1_2, m1_3])
+
+    t2 = MessageThread(
+        id="msg-2",
+        tenant_id="tenant-1",
+        property_id="prop-1",
+        guest_name="David Miller",
+        guest_phone="+44 7700 900123",
+        room_number="205",
+        reservation_ref="SGN-26-8821",
+        channel="WhatsApp",
+        unread_count=1,
+        created_at="2026-09-19T07:45:00",
+        last_message_at="2026-09-19T08:50:00",
+    )
+    db.add(t2)
+
+    m2_1 = Message(
+        id="m-201",
+        thread_id="msg-2",
+        sender="hotel",
+        content="Good morning Mr. Miller! Continental breakfast is being served at the Terrace Lounge until 10:30 AM.",
+        timestamp="2026-09-19T07:46:00",
+        status="read",
+    )
+    m2_2 = Message(
+        id="m-202",
+        thread_id="msg-2",
+        sender="guest",
+        content="Brilliant, thanks. Could you arrange an airport transfer for tomorrow at 2:00 PM?",
+        timestamp="2026-09-19T08:50:00",
+        status="sent",
+    )
+    db.add_all([m2_1, m2_2])
 
     db.commit()
 

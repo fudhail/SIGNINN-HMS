@@ -53,7 +53,7 @@ export const WalkInModal: React.FC<WalkInModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const today = '2026-09-16';
+      const today = new Date().toISOString().split('T')[0];
       const checkOut = new Date(Date.now() + 86400000 * nights).toISOString().split('T')[0];
 
       await onCompleteWalkIn({

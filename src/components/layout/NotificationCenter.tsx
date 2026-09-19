@@ -10,8 +10,14 @@ import {
   Wrench,
   Check,
 } from 'lucide-react';
-import { mockNotifications } from '../../mocks/mockData';
 import { OperationalNotification } from '../../types';
+import {
+  useRoomsQuery,
+  useReservationsQuery,
+  useMaintenanceTicketsQuery,
+  useFoliosQuery,
+} from '../../services/api/queries';
+import { useAppStore } from '../../stores/useAppStore';
 
 export interface NotificationCenterProps {
   onNavigate: (viewId: string) => void;
@@ -19,18 +25,89 @@ export interface NotificationCenterProps {
 
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<OperationalNotification[]>(mockNotifications);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+
+  const currentProperty = useAppStore((state) => state.currentProperty);
+  const { data: rooms = [] } = useRoomsQuery(currentProperty?.id);
+  const { data: reservations = [] } = useReservationsQuery(currentProperty?.id);
+  const { data: maintenanceTickets = [] } = useMaintenanceTicketsQuery();
+  const { data: folios = [] } = useFoliosQuery();
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const notifications: OperationalNotification[] = React.useMemo(() => {
+    const list: OperationalNotification[] = [];
+
+    // 1. Pending Arrivals
+    const pendingArrivals = reservations.filter(
+      (r) => r.checkInDate === today && r.status === 'Confirmed'
+    );
+    if (pendingArrivals.length > 0) {
+      list.push({
+        id: 'notif-arrivals',
+        title: `${pendingArrivals.length} Arrival(s) Pending Check-In`,
+        message: `${pendingArrivals.slice(0, 3).map((r) => r.guest.firstName).join(', ')} arriving today. Front desk verification pending.`,
+        type: 'reservation',
+        timestamp: 'Today',
+        read: readIds.has('notif-arrivals'),
+        link: 'frontdesk',
+      });
+    }
+
+    // 2. Dirty Rooms requiring Housekeeping
+    const dirtyRooms = rooms.filter((r) => r.housekeepingStatus === 'Dirty');
+    if (dirtyRooms.length > 0) {
+      list.push({
+        id: 'notif-hsk',
+        title: `${dirtyRooms.length} Room(s) Queued for Housekeeping`,
+        message: `Rooms ${dirtyRooms.slice(0, 4).map((r) => r.roomNumber).join(', ')} turnover clean required.`,
+        type: 'housekeeping',
+        timestamp: 'Live',
+        read: readIds.has('notif-hsk'),
+        link: 'housekeeping',
+      });
+    }
+
+    // 3. Open Maintenance Tickets
+    const openTickets = maintenanceTickets.filter((t) => t.status !== 'Resolved');
+    if (openTickets.length > 0) {
+      list.push({
+        id: 'notif-mnt',
+        title: `${openTickets.length} Active Maintenance Ticket(s)`,
+        message: `${openTickets[0].title} (Room ${openTickets[0].roomNumber})`,
+        type: 'maintenance',
+        timestamp: 'Active',
+        read: readIds.has('notif-mnt'),
+        link: 'maintenance',
+      });
+    }
+
+    // 4. Unsettled Balances
+    const pendingFolios = folios.filter((f) => f.status === 'Open' && f.balance > 0);
+    if (pendingFolios.length > 0) {
+      const totalOutstanding = pendingFolios.reduce((acc, f) => acc + f.balance, 0);
+      list.push({
+        id: 'notif-folio',
+        title: `${pendingFolios.length} Open Folio(s) with Balance`,
+        message: `Total pending receivable balance across folios is INR ${totalOutstanding.toLocaleString('en-IN')}`,
+        type: 'payment_due',
+        timestamp: 'Live',
+        read: readIds.has('notif-folio'),
+        link: 'folios',
+      });
+    }
+
+    return list;
+  }, [rooms, reservations, maintenanceTickets, folios, today, readIds]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setReadIds(new Set(notifications.map((n) => n.id)));
   };
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setReadIds((prev) => new Set([...prev, id]));
   };
 
   const getIcon = (type: OperationalNotification['type']) => {

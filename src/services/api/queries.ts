@@ -1049,3 +1049,103 @@ export function useForceChannelSyncMutation() {
   });
 }
 
+// ==========================================
+// PROPERTY & STAFF MUTATIONS
+// ==========================================
+export function useUpdatePropertyMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (prop: Partial<Property> & { id: string }) => {
+      return await apiRequest<Property>(`/api/properties/${prop.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(prop),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+  });
+}
+
+export function useAddStaffMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (newStaff: Partial<StaffMember>) => {
+      return await apiRequest<StaffMember>('/api/staff-audit/staff', {
+        method: 'POST',
+        body: JSON.stringify(newStaff),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    },
+  });
+}
+
+export function useUpdateStaffStatusMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ staffId, status }: { staffId: string; status: string }) => {
+      return await apiRequest<any>(`/api/staff-audit/staff/${staffId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+    },
+  });
+}
+
+// ==========================================
+// MESSAGES & GUEST COMMUNICATIONS
+// ==========================================
+export function useMessageThreadsQuery() {
+  const currentTenantId = useAppStore((state) => state.currentTenantId);
+  return useQuery({
+    queryKey: ['messages', currentTenantId],
+    queryFn: async () => {
+      return await apiRequest<any[]>('/api/messages/threads');
+    },
+  });
+}
+
+export function useSendMessageMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ threadId, content }: { threadId: string; content: string }) => {
+      return await apiRequest<any>(`/api/messages/threads/${threadId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, sender: 'hotel' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+}
+
+// ==========================================
+// DIRECT PAYMENT RECORDING
+// ==========================================
+export function useRecordDirectPaymentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentData: any) => {
+      return await apiRequest<any>('/api/billing/payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: paymentData.amount,
+          method: paymentData.method,
+          reference: paymentData.reference,
+          notes: paymentData.notes,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['folios'] });
+    },
+  });
+}
+

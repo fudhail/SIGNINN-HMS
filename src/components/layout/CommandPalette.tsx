@@ -14,7 +14,12 @@ import {
   Radio,
   Database,
 } from 'lucide-react';
-import { mockReservations, mockRooms, mockGuests, mockInvoices } from '../../mocks/mockData';
+import {
+  useReservationsQuery,
+  useRoomsQuery,
+  useGuestsQuery,
+} from '../../services/api/queries';
+import { useAppStore } from '../../stores/useAppStore';
 
 export interface CommandPaletteProps {
   isOpen: boolean;
@@ -36,6 +41,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenNewReservation,
 }) => {
   const [query, setQuery] = useState('');
+
+  const currentProperty = useAppStore((state) => state.currentProperty);
+  const { data: reservations = [] } = useReservationsQuery(currentProperty?.id);
+  const { data: rooms = [] } = useRoomsQuery(currentProperty?.id);
+  const { data: guests = [] } = useGuestsQuery();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,32 +150,32 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     },
   ];
 
-  // Filtered reservations
-  const matchedReservations = mockReservations.filter((r) =>
+  // Filtered reservations from live DB query
+  const matchedReservations = reservations.filter((r) =>
     cleanQuery === ''
       ? false
-      : r.refCode.toLowerCase().includes(cleanQuery) ||
-        r.guest.firstName.toLowerCase().includes(cleanQuery) ||
-        r.guest.lastName.toLowerCase().includes(cleanQuery) ||
+      : (r.refCode && r.refCode.toLowerCase().includes(cleanQuery)) ||
+        (r.guest?.firstName && r.guest.firstName.toLowerCase().includes(cleanQuery)) ||
+        (r.guest?.lastName && r.guest.lastName.toLowerCase().includes(cleanQuery)) ||
         (r.roomNumber && r.roomNumber.includes(cleanQuery))
   ).slice(0, 4);
 
-  // Filtered rooms
-  const matchedRooms = mockRooms.filter((rm) =>
+  // Filtered rooms from live DB query
+  const matchedRooms = rooms.filter((rm) =>
     cleanQuery === ''
       ? false
-      : rm.roomNumber.includes(cleanQuery) ||
-        rm.roomTypeName.toLowerCase().includes(cleanQuery) ||
+      : (rm.roomNumber && rm.roomNumber.includes(cleanQuery)) ||
+        (rm.roomTypeName && rm.roomTypeName.toLowerCase().includes(cleanQuery)) ||
         (rm.currentGuestName && rm.currentGuestName.toLowerCase().includes(cleanQuery))
   ).slice(0, 3);
 
-  // Filtered guests
-  const matchedGuests = mockGuests.filter((g) =>
+  // Filtered guests from live DB query
+  const matchedGuests = guests.filter((g) =>
     cleanQuery === ''
       ? false
       : `${g.firstName} ${g.lastName}`.toLowerCase().includes(cleanQuery) ||
-        g.email.toLowerCase().includes(cleanQuery) ||
-        g.phone.includes(cleanQuery)
+        (g.email && g.email.toLowerCase().includes(cleanQuery)) ||
+        (g.phone && g.phone.includes(cleanQuery))
   ).slice(0, 3);
 
   return (

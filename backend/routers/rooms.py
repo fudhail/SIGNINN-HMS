@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.dependencies import get_current_tenant_id
-from backend.models import Room, RoomType, AuditLog
+from backend.models import Room, RoomType, AuditLog, generate_id
 from backend.schemas import RoomResponse, RoomTypeResponse, RoomUpdateStatus
 
 router = APIRouter(tags=["Rooms & Room Types"])
@@ -66,9 +66,9 @@ def update_room_housekeeping_status(
     if new_status:
         old_status = room.housekeeping_status
         room.housekeeping_status = new_status
-        # Log to audit log
+        # Log to audit log with unique ID
         log = AuditLog(
-            id=f"log-{int(room.room_number) * 100 + 1}",
+            id=generate_id("log"),
             tenant_id=tenant_id,
             staff_name="Housekeeping Attendant",
             action="Housekeeping Status Update",
@@ -95,7 +95,7 @@ def update_room_maintenance_status(
         old_status = room.maintenance_status
         room.maintenance_status = new_status
         log = AuditLog(
-            id=f"log-{int(room.room_number) * 100 + 2}",
+            id=generate_id("log"),
             tenant_id=tenant_id,
             staff_name="Maintenance Lead",
             action="Maintenance Status Update",
