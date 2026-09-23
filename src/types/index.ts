@@ -271,10 +271,33 @@ export type BookingSource =
   | 'Booking.com'
   | 'MakeMyTrip'
   | 'Goibibo'
+  | 'GoMMT (MakeMyTrip & Goibibo)'
   | 'Agoda'
   | 'Airbnb'
   | 'Expedia'
-  | 'Corporate';
+  | 'Cleartrip'
+  | 'Ease My Trip'
+  | 'CTrip / Trip.com'
+  | 'HotelBeds'
+  | 'HostelWorld'
+  | 'HappyEasyGo'
+  | 'Tiket'
+  | 'Traveloka'
+  | 'Travelguru'
+  | 'Travolounge'
+  | 'VHS Hub'
+  | 'Bookings Maker'
+  | 'Reconline'
+  | 'eZee Technosys'
+  | 'Hotelierguru'
+  | 'Simplotel'
+  | 'Travelanium'
+  | 'Aiolia BE'
+  | 'Bakuun'
+  | 'RateDock'
+  | 'HyperGuest'
+  | 'Corporate'
+  | (string & {});
 
 export type ChannelStatus = 'Connected' | 'Attention' | 'Syncing' | 'Failed' | 'Disconnected';
 
@@ -506,6 +529,8 @@ export interface ChannelConfig {
   rateMultiplier?: number;
   bookingsThisMonth?: number;
   activeListings?: number;
+  category?: 'OTA' | 'CM' | 'Booking Engine' | 'OTA Aggregator' | string;
+  aiosell_slug?: string;
   inbound_email_alias?: string;
   ical_export_token?: string;
   ical_import_url?: string;
@@ -514,6 +539,20 @@ export interface ChannelConfig {
 }
 
 export type ChannelConnection = ChannelConfig;
+
+export interface AiosellConfig {
+  baseUrl: string;
+  username: string;
+  password: string;
+  hotelCode: string;
+  partnerId: string;
+  sandboxUiUrl: string;
+  sandboxUiUser: string;
+  sandboxUiPass: string;
+  webhookUrl: string;
+  alternateWebhookUrl: string;
+  isSandbox: boolean;
+}
 
 export interface OtaIngestionLog {
   id: string;

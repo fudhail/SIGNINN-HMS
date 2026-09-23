@@ -26,8 +26,6 @@ from backend.routers import (
     channels,
     rates,
     audit,
-    ota_ingestion,
-    ical,
     messages,
 )
 
@@ -72,9 +70,15 @@ app.include_router(maintenance.router)
 app.include_router(channels.router)
 app.include_router(rates.router)
 app.include_router(audit.router)
-app.include_router(ota_ingestion.router)
-app.include_router(ical.router)
 app.include_router(messages.router)
+
+# Direct Aiosell Webhook route per Aiosell standard specification (/update_reservation)
+app.add_api_route(
+    "/update_reservation",
+    channels.aiosell_inbound_webhook,
+    methods=["POST"],
+    tags=["OTA Channel Manager"],
+)
 
 
 from fastapi.staticfiles import StaticFiles

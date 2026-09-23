@@ -142,7 +142,7 @@ def record_direct_payment(
         id=pay_id,
         tenant_id=auth.tenant_id,
         reservation_id=None,
-        reservation_ref=None,
+        reservation_ref="DIRECT",
         guest_name="Front Desk Customer",
         amount=req.amount,
         currency="INR",

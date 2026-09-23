@@ -288,10 +288,23 @@ export const ViewRouter: React.FC = () => {
           property={currentProperty}
           reservations={reservations}
           rooms={rooms}
+          role={currentRole}
+          housekeepingTasks={housekeepingTasks}
+          maintenanceTickets={maintenanceTickets}
+          payments={payments}
+          folios={folios}
+          invoices={invoices}
+          channels={channels}
+          ratePlans={ratePlans}
           onNavigate={(viewId) => setCurrentView(viewId)}
           onOpenReservationDetail={(resId) => setDetailResId(resId)}
           onOpenCheckIn={(resId) => setCheckInResId(resId || null)}
           onOpenCheckOut={(resId) => setCheckOutResId(resId || null)}
+          onOpenWalkIn={() => {
+            setWalkInRoomId(undefined);
+            setIsWalkInOpen(true);
+          }}
+          onOpenNewReservation={() => setIsNewResOpen(true)}
         />
       );
 

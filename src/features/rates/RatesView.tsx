@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Tag,
   Plus,
@@ -8,6 +8,9 @@ import {
   Percent,
   Calendar,
   CheckCircle2,
+  RefreshCw,
+  Radio,
+  Save,
 } from 'lucide-react';
 import { RatePlan, RoomType } from '../../types';
 import { formatCurrency } from '../../utils/formatters';
@@ -16,6 +19,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
+import { useAiosellPushRatesMutation } from '../../services/api/queries';
 
 export interface RatesViewProps {
   ratePlans: RatePlan[];
@@ -29,20 +33,121 @@ export const RatesView: React.FC<RatesViewProps> = ({
   onUpdateRatePlan,
 }) => {
   const { showToast } = useToast();
+  const pushRatesMutation = useAiosellPushRatesMutation();
+
   const [selectedPlan, setSelectedPlan] = useState<RatePlan | null>(null);
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [bulkPercent, setBulkPercent] = useState(10);
+  const [isPushingAiosell, setIsPushingAiosell] = useState(false);
 
-  // Dynamic pricing sample dates matrix
-  const dates = ['2026-09-16', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21', '2026-09-22'];
+  // Dynamic pricing rolling 7-day window starting today
+  const dates = useMemo(() => {
+    const list: string[] = [];
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+      list.push(d.toISOString().split('T')[0]);
+    }
+    return list;
+  }, []);
+
+  // Matrix rates state: `${roomTypeId}-${date}` -> rate
+  const [customRates, setCustomRates] = useState<Record<string, number>>({});
+
+  const getEffectiveRate = (rt: RoomType, d: string, idx: number) => {
+    const key = `${rt.id}-${d}`;
+    if (customRates[key] !== undefined) return customRates[key];
+    const isWeekend = idx === 3 || idx === 4; // Fri/Sat surcharge
+    return isWeekend ? rt.basePrice + 800 : rt.basePrice;
+  };
+
+  const handleRateCellChange = (rtId: string, d: string, valStr: string) => {
+    const numeric = parseInt(valStr.replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(numeric)) {
+      setCustomRates((prev) => ({ ...prev, [`${rtId}-${d}`]: numeric }));
+    }
+  };
+
+  const handlePushRatesToAiosell = async () => {
+    setIsPushingAiosell(true);
+    try {
+      // Build rate updates for Aiosell
+      const updates = dates.map((d, idx) => {
+        const rates = roomTypes.map((rt) => {
+          const rateVal = getEffectiveRate(rt, d, idx);
+          // Map to default Aiosell codes
+          const roomCode = rt.name.toLowerCase().includes('exec')
+            ? 'executive'
+            : rt.name.toLowerCase().includes('suite') || rt.name.toLowerCase().includes('pres')
+            ? 'suite'
+            : 'deluxe';
+          return {
+            roomCode,
+            rateplanCode: `${roomCode}-s-ep`,
+            rate: rateVal,
+          };
+        });
+        return {
+          startDate: d,
+          endDate: d,
+          rates,
+        };
+      });
+
+      await pushRatesMutation.mutateAsync({ updates });
+      showToast({
+        title: 'Rates Pushed to Aiosell',
+        description: `Live rates pushed to Aiosell Channel Manager for next 7 days.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      showToast({
+        title: 'Sync Failed',
+        description: err.message || 'Could not push rates to Aiosell',
+        type: 'error',
+      });
+    } finally {
+      setIsPushingAiosell(false);
+    }
+  };
 
   const handleApplyBulk = () => {
+    // Apply bulk surge to custom rates
+    const nextRates = { ...customRates };
+    roomTypes.forEach((rt) => {
+      dates.forEach((d, idx) => {
+        const current = getEffectiveRate(rt, d, idx);
+        const adjusted = Math.round(current * (1 + bulkPercent / 100));
+        nextRates[`${rt.id}-${d}`] = adjusted;
+      });
+    });
+    setCustomRates(nextRates);
     showToast({
       title: 'Bulk Yield Surge Applied',
-      description: `All BAR rates updated by +${bulkPercent}% for the selected date window.`,
+      description: `All BAR rates updated by +${bulkPercent}% across the 7-day grid. Click "Push Rates to Aiosell" to broadcast.`,
       type: 'success',
     });
     setIsBulkUpdateOpen(false);
+  };
+
+  const handleSavePlan = async () => {
+    if (!selectedPlan) return;
+    try {
+      await onUpdateRatePlan(selectedPlan);
+      showToast({
+        title: 'Rate Plan Updated',
+        description: `${selectedPlan.name} configuration saved.`,
+        type: 'success',
+      });
+      setSelectedPlan(null);
+    } catch (err: any) {
+      showToast({
+        title: 'Error Saving Plan',
+        description: err.message || 'Failed to update plan',
+        type: 'error',
+      });
+    }
   };
 
   return (
@@ -55,13 +160,17 @@ export const RatesView: React.FC<RatesViewProps> = ({
             <h1 className="text-xl font-bold tracking-tight text-gray-950 font-sans">
               Rates & Yield Pricing Manager
             </h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Aiosell Connected
+            </span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Dynamic pricing rules, meal plan packages, corporate tariff slabs, and rate matrices.
+            Dynamic pricing rules, meal plan packages, rate parity, and real-time Aiosell OTA distribution.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -69,6 +178,16 @@ export const RatesView: React.FC<RatesViewProps> = ({
             leftIcon={<TrendingUp className="w-3.5 h-3.5 text-blue-600" />}
           >
             Bulk Rate Surge (+%)
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handlePushRatesToAiosell}
+            disabled={isPushingAiosell}
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isPushingAiosell ? 'animate-spin' : ''}`} />}
+          >
+            {isPushingAiosell ? 'Pushing to Aiosell...' : 'Push Rates to Aiosell'}
           </Button>
         </div>
       </div>
@@ -128,17 +247,28 @@ export const RatesView: React.FC<RatesViewProps> = ({
 
       {/* Date x Room Type Live Pricing Matrix */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <div className="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900">
               7-Day Rate & Yield Matrix (BAR Room Only)
             </h3>
-            <p className="text-[11px] text-gray-500">Live baseline tariffs pushed to OTAs and direct engine</p>
+            <p className="text-[11px] text-gray-500">Live baseline tariffs pushed to OTAs via Aiosell Channel Manager</p>
           </div>
 
-          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-            Parity Maintained across Portals
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+              Parity Maintained across Portals
+            </span>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={handlePushRatesToAiosell}
+              disabled={isPushingAiosell}
+              leftIcon={<Radio className="w-3 h-3 text-emerald-600" />}
+            >
+              Sync Grid
+            </Button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -164,13 +294,13 @@ export const RatesView: React.FC<RatesViewProps> = ({
                     <span className="text-[10px] text-gray-400 font-normal">{rt.totalInventory} rooms total</span>
                   </td>
                   {dates.map((d, idx) => {
-                    const isWeekend = idx === 3 || idx === 4; // Fri/Sat surcharge
-                    const rate = isWeekend ? rt.basePrice + 800 : rt.basePrice;
+                    const currentVal = getEffectiveRate(rt, d, idx);
                     return (
                       <td key={d} className="p-3 text-center">
                         <input
                           type="text"
-                          defaultValue={`₹${rate}`}
+                          value={`₹${currentVal}`}
+                          onChange={(e) => handleRateCellChange(rt.id, d, e.target.value)}
                           className="w-20 text-center text-xs font-bold text-gray-900 bg-white border border-gray-200 rounded py-1 hover:border-blue-500 focus:border-blue-600 outline-none"
                         />
                       </td>
@@ -218,6 +348,83 @@ export const RatesView: React.FC<RatesViewProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* Edit Rate Plan Modal */}
+      {selectedPlan && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedPlan(null)}
+          maxWidth="md"
+          title={`Edit Rate Plan: ${selectedPlan.name}`}
+          footer={
+            <>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedPlan(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleSavePlan} leftIcon={<Save className="w-3.5 h-3.5" />}>
+                Save Plan Changes
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-xs">
+            <Input
+              label="Plan Name"
+              value={selectedPlan.name}
+              onChange={(e) => setSelectedPlan({ ...selectedPlan, name: e.target.value })}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">Meal Plan</label>
+                <select
+                  value={selectedPlan.mealPlan}
+                  onChange={(e) => setSelectedPlan({ ...selectedPlan, mealPlan: e.target.value })}
+                  className="w-full text-xs h-8 px-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"
+                >
+                  <option value="Room Only (EP)">Room Only (EP)</option>
+                  <option value="Bed & Breakfast (CP)">Bed & Breakfast (CP)</option>
+                  <option value="Half Board (MAP)">Half Board (MAP)</option>
+                  <option value="Full Board (AP)">Full Board (AP)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-semibold mb-1">Status</label>
+                <select
+                  value={selectedPlan.status}
+                  onChange={(e) => setSelectedPlan({ ...selectedPlan, status: e.target.value as any })}
+                  className="w-full text-xs h-8 px-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                type="number"
+                label="Markup on Base (%)"
+                value={selectedPlan.markupPercent}
+                onChange={(e) => setSelectedPlan({ ...selectedPlan, markupPercent: parseFloat(e.target.value) || 0 })}
+              />
+              <Input
+                type="number"
+                label="Minimum Nights"
+                value={selectedPlan.minNights}
+                onChange={(e) => setSelectedPlan({ ...selectedPlan, minNights: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+
+            <Input
+              label="Cancellation Policy"
+              value={selectedPlan.cancellationPolicy}
+              onChange={(e) => setSelectedPlan({ ...selectedPlan, cancellationPolicy: e.target.value })}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

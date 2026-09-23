@@ -361,6 +361,8 @@ export function useChannelsQuery() {
           rateMultiplier: ch.rateMultiplier ?? ch.rate_multiplier ?? 1.0,
           bookingsThisMonth: ch.bookingsThisMonth ?? ch.bookings_this_month ?? 0,
           activeListings: ch.activeListings ?? ch.active_listings ?? 1,
+          category: ch.category || 'OTA',
+          aiosell_slug: ch.aiosell_slug || ch.aiosellSlug,
           inbound_email_alias: ch.inbound_email_alias,
           ical_export_token: ch.ical_export_token,
           ical_import_url: ch.ical_import_url,
@@ -918,7 +920,7 @@ export function useDeleteTenantMutation() {
 }
 
 // ==========================================
-// OTA DIRECT INGESTION & ICAL HOOKS
+// OTA CHANNEL MANAGER INGESTION LOGS
 // ==========================================
 export function useOtaIngestionLogsQuery() {
   const currentTenantId = useAppStore((state) => state.currentTenantId);
@@ -927,78 +929,19 @@ export function useOtaIngestionLogsQuery() {
     queryKey: ['otaIngestionLogs', currentTenantId],
     queryFn: async () => {
       try {
-        return await apiRequest<OtaIngestionLog[]>('/api/ota/ingestion-logs');
+        return await apiRequest<OtaIngestionLog[]>('/api/channels/logs');
       } catch {
-        return [];
+        try {
+          return await apiRequest<OtaIngestionLog[]>('/api/ota/ingestion-logs');
+        } catch {
+          return [];
+        }
       }
     },
     staleTime: 1000 * 15,
   });
 }
 
-export function useSimulateOtaEmailMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (payload: EmailSimulationPayload) => {
-      return await apiRequest<any>('/api/ota/simulate-email', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['folios'] });
-      queryClient.invalidateQueries({ queryKey: ['channels'] });
-      queryClient.invalidateQueries({ queryKey: ['otaIngestionLogs'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    },
-  });
-}
-
-export function useReconcileCsvMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (payload: CsvReconcilePayload) => {
-      return await apiRequest<CsvReconcileResponse>('/api/ota/reconcile-csv', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['folios'] });
-      queryClient.invalidateQueries({ queryKey: ['channels'] });
-      queryClient.invalidateQueries({ queryKey: ['otaIngestionLogs'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    },
-  });
-}
-
-export function useSyncIcalMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (payload: { channelId?: string; channelName?: string; icalUrl?: string; propertyId?: string }) => {
-      return await apiRequest<any>('/api/ical/inbound/sync', {
-        method: 'POST',
-        body: JSON.stringify({
-          channel_id: payload.channelId,
-          channel_name: payload.channelName,
-          ical_url: payload.icalUrl,
-          property_id: payload.propertyId,
-        }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservations'] });
-      queryClient.invalidateQueries({ queryKey: ['channels'] });
-      queryClient.invalidateQueries({ queryKey: ['otaIngestionLogs'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-    },
-  });
-}
 
 export function useUpdateChannelMarkupMutation() {
   const queryClient = useQueryClient();
@@ -1060,6 +1003,160 @@ export function useForceChannelSyncMutation() {
     },
   });
 }
+
+// ==========================================
+// AIOSELL CHANNEL MANAGER HOOKS
+// ==========================================
+
+export function useAiosellConfigQuery() {
+  return useQuery({
+    queryKey: ['aiosell', 'config'],
+    queryFn: async () => {
+      return await apiRequest<any>('/api/channels/aiosell/config');
+    },
+  });
+}
+
+export function useAiosellMappingQuery(hotelCode?: string, partnerId?: string) {
+  return useQuery({
+    queryKey: ['aiosell', 'mapping', hotelCode, partnerId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (hotelCode) params.append('hotel_code', hotelCode);
+      if (partnerId) params.append('partner_id', partnerId);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+      return await apiRequest<any>(`/api/channels/aiosell/mapping${queryStr}`);
+    },
+  });
+}
+
+export function useAiosellPushInventoryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { updates: any[]; hotel_code?: string; partner_id?: string }) => {
+      return await apiRequest<any>('/api/channels/aiosell/push-inventory', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+export function useAiosellPushRatesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { updates: any[]; hotel_code?: string; partner_id?: string }) => {
+      return await apiRequest<any>('/api/channels/aiosell/push-rates', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+export function useAiosellPushRestrictionsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      type?: 'inventory' | 'rates';
+      to_channels: string[];
+      updates: any[];
+      hotel_code?: string;
+      partner_id?: string;
+    }) => {
+      return await apiRequest<any>('/api/channels/aiosell/push-restrictions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+export function useAiosellMultiplierMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      multiplier: number;
+      channels: string[];
+      hotel_code?: string;
+      partner_id?: string;
+    }) => {
+      return await apiRequest<any>('/api/channels/aiosell/multiplier', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
+export function useAiosellMarkNoShowMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      booking_id: string;
+      channel: string;
+      hotel_code?: string;
+      partner_id?: string;
+    }) => {
+      return await apiRequest<any>('/api/channels/aiosell/mark-noshow', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+    },
+  });
+}
+
+export function useAiosellFetchDataMutation() {
+  return useMutation({
+    mutationFn: async (payload: {
+      data_type: 'inventory' | 'rates' | 'reservation';
+      start_date: string;
+      end_date: string;
+      hotel_code?: string;
+      partner_id?: string;
+    }) => {
+      return await apiRequest<any>('/api/channels/aiosell/fetch', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+  });
+}
+
+export function useAiosellSimulateWebhookMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      return await apiRequest<any>('/api/channels/aiosell/simulate-webhook', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['otaIngestionLogs'] });
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    },
+  });
+}
+
 
 // ==========================================
 // PROPERTY & STAFF MUTATIONS

@@ -102,7 +102,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'frontdesk',
           label: 'Front Desk',
           icon: DoorOpen,
-          badge: '4',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk'],
         },
         {
@@ -121,14 +120,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'housekeeping',
           label: 'Housekeeping',
           icon: Sparkles,
-          badge: '6',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Housekeeping'],
         },
         {
           id: 'maintenance',
           label: 'Maintenance',
           icon: Wrench,
-          badge: '3',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Maintenance'],
         },
         {
@@ -158,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'channels',
-          label: 'Channels (OTA)',
+          label: 'Channel Manager',
           icon: Radio,
           featureFlag: 'otaChannelManager',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Revenue Manager'],
@@ -185,7 +182,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'messages',
           label: 'Messages',
           icon: MessageSquare,
-          badge: '1',
           allowedRoles: ['Group Admin', 'Owner', 'Property Manager', 'Front Desk', 'Housekeeping'],
         },
         {

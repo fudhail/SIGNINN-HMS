@@ -3,6 +3,8 @@ import {
   Globe, RefreshCw, Sliders, Mail, Calendar, FileSpreadsheet,
   Copy, Check, Play, Zap, ExternalLink, TrendingDown, TrendingUp,
   ArrowRight, Link2, AlertCircle, CheckCircle2, Upload, BarChart3, IndianRupee,
+  ShieldCheck, ArrowUpRight, Radio, Send, Database, Lock, Eye, Filter,
+  SlidersHorizontal, CheckSquare, Settings2, Info, ChevronRight,
 } from "lucide-react";
 import { ChannelConnection, Property, Tenant } from "../../types";
 import { formatCurrency } from "../../utils/formatters";
@@ -11,8 +13,15 @@ import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/Toast";
 import {
-  useOtaIngestionLogsQuery, useSimulateOtaEmailMutation,
-  useReconcileCsvMutation, useSyncIcalMutation,
+  useOtaIngestionLogsQuery,
+  useAiosellConfigQuery,
+  useAiosellPushInventoryMutation,
+  useAiosellPushRatesMutation,
+  useAiosellPushRestrictionsMutation,
+  useAiosellMultiplierMutation,
+  useAiosellMarkNoShowMutation,
+  useAiosellFetchDataMutation,
+  useAiosellSimulateWebhookMutation,
 } from "../../services/api/queries";
 
 export interface ChannelsViewProps {
@@ -23,626 +32,1321 @@ export interface ChannelsViewProps {
   onToggleChannelStatus: (channelId: string) => Promise<void>;
   onUpdateMarkup: (channelId: string, markupPercent: number) => Promise<void>;
 }
-type TabType = "overview" | "email" | "csv" | "ical";
 
-const OTA_LOGOS: Record<string, { initials: string; color: string; bg: string }> = {
+type MainTab = "channels" | "push_suite" | "fetch_verify" | "webhook" | "logs";
+type CategoryFilter = "ALL" | "OTA" | "CM" | "Booking Engine" | "OTA Aggregator";
+
+const OTA_BRAND_COLORS: Record<string, { initials: string; color: string; bg: string }> = {
   "Booking.com": { initials: "BK", color: "#003580", bg: "#e8eef8" },
-  "MakeMyTrip":  { initials: "MM", color: "#e41d24", bg: "#fde8e9" },
-  "Agoda":       { initials: "AG", color: "#1864ab", bg: "#e2ecf7" },
-  "Airbnb":      { initials: "AB", color: "#FF385C", bg: "#ffe8ec" },
-  "Expedia":     { initials: "EX", color: "#00355f", bg: "#e0eaf2" },
-  "Goibibo":     { initials: "GO", color: "#ec5b24", bg: "#fdeae2" },
+  "GoMMT (MakeMyTrip & Goibibo)": { initials: "MM", color: "#e41d24", bg: "#fde8e9" },
+  "Agoda": { initials: "AG", color: "#1864ab", bg: "#e2ecf7" },
+  "Airbnb": { initials: "AB", color: "#FF385C", bg: "#ffe8ec" },
+  "Expedia": { initials: "EX", color: "#00355f", bg: "#e0eaf2" },
+  "Cleartrip": { initials: "CT", color: "#f26522", bg: "#fef0ea" },
+  "Ease My Trip": { initials: "EM", color: "#0084ff", bg: "#e6f3ff" },
+  "CTrip / Trip.com": { initials: "TR", color: "#2577e3", bg: "#eaf2fc" },
+  "HotelBeds": { initials: "HB", color: "#e61b24", bg: "#fce8e9" },
+  "HostelWorld": { initials: "HW", color: "#ff6600", bg: "#fff0e6" },
+  "HappyEasyGo": { initials: "HE", color: "#ff5000", bg: "#ffede6" },
+  "Tiket": { initials: "TK", color: "#0064d2", bg: "#e6f0fa" },
+  "Traveloka": { initials: "TV", color: "#1ba0e2", bg: "#e8f5fb" },
+  "Travelguru": { initials: "TG", color: "#e67e22", bg: "#fdf2e9" },
+  "Travolounge": { initials: "TL", color: "#8e44ad", bg: "#f4ecf7" },
+  "VHS Hub": { initials: "VH", color: "#2c3e50", bg: "#eaeded" },
+  "Bookings Maker": { initials: "BM", color: "#16a085", bg: "#e8f8f5" },
+  "Reconline": { initials: "RC", color: "#2980b9", bg: "#eaf2f8" },
+  "eZee Technosys": { initials: "EZ", color: "#27ae60", bg: "#eafaf1" },
+  "Hotelierguru": { initials: "HG", color: "#d35400", bg: "#fbeee6" },
+  "Simplotel": { initials: "SP", color: "#2980b9", bg: "#ebf5fb" },
+  "Travelanium": { initials: "TA", color: "#8e44ad", bg: "#f5eef8" },
+  "Aiolia BE": { initials: "AI", color: "#16a085", bg: "#e8f6f3" },
+  "Bakuun": { initials: "BK", color: "#d35400", bg: "#faeae6" },
+  "RateDock": { initials: "RD", color: "#c0392b", bg: "#f9ebea" },
+  "HyperGuest": { initials: "HG", color: "#34495e", bg: "#ebedef" },
 };
-const SETUP_STEPS = [
-  { step: 1, title: "Booking.com Extranet", icon: "🏨", desc: "Property → Contacts → Reservations Notifications. Add your forwarder alias as additional recipient." },
-  { step: 2, title: "MakeMyTrip InGoMMT",   icon: "✈️", desc: "InGoMMT Extranet → Settings → Email Alerts. Add the forwarder address to receive booking vouchers." },
-  { step: 3, title: "Gmail / Outlook",       icon: "📧", desc: "Create a filter for *@booking.com or *@makemytrip.com and auto-forward to your forwarder alias." },
-];
 
 export const ChannelsView: React.FC<ChannelsViewProps> = ({
-  channels, currentProperty, onForceSync, onToggleChannelStatus, onUpdateMarkup,
+  channels,
+  currentProperty,
+  onForceSync,
+  onToggleChannelStatus,
+  onUpdateMarkup,
 }) => {
   const { showToast } = useToast();
-  const [activeTab,         setActiveTab]         = useState<TabType>("overview");
-  const [isSyncing,         setIsSyncing]         = useState(false);
-  const [selectedChannel,   setSelectedChannel]   = useState<ChannelConnection | null>(null);
-  const [copiedText,        setCopiedText]        = useState<string | null>(null);
-  const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
-  const [simChannel,          setSimChannel]          = useState("Booking.com");
-  const [simGuestName,        setSimGuestName]        = useState("Siddharth Singhania");
-  const [simGuestPhone,       setSimGuestPhone]       = useState("+91 98201 55678");
-  const [simGuestEmail,       setSimGuestEmail]       = useState("siddharth.s@gmail.com");
-  const [simNights,           setSimNights]           = useState(2);
-  const [simAmount,           setSimAmount]           = useState(19500);
-  const [simCommissionRate,   setSimCommissionRate]   = useState(15);
-  const [simPaymentMode,      setSimPaymentMode]      = useState("Virtual Card (VCC)");
-  const [csvContent,          setCsvContent]          = useState("");
-  const [csvChannel,          setCsvChannel]          = useState("Auto-detect");
-  const [csvResult,           setCsvResult]           = useState<any | null>(null);
-  const [selectedIcalChannel, setSelectedIcalChannel] = useState("Airbnb");
-  const [inboundIcalUrl,      setInboundIcalUrl]      = useState("");
+  const [activeTab, setActiveTab] = useState<MainTab>("channels");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Aiosell API Hooks
+  const { data: aiosellConfig } = useAiosellConfigQuery();
+  const pushInventoryMutation = useAiosellPushInventoryMutation();
+  const pushRatesMutation = useAiosellPushRatesMutation();
+  const pushRestrictionsMutation = useAiosellPushRestrictionsMutation();
+  const channelMultiplierMutation = useAiosellMultiplierMutation();
+  const markNoShowMutation = useAiosellMarkNoShowMutation();
+  const fetchDataMutation = useAiosellFetchDataMutation();
+  const simulateWebhookMutation = useAiosellSimulateWebhookMutation();
   const { data: ingestionLogs = [] } = useOtaIngestionLogsQuery();
-  const simulateEmailMutation = useSimulateOtaEmailMutation();
-  const reconcileCsvMutation  = useReconcileCsvMutation();
-  const syncIcalMutation      = useSyncIcalMutation();
 
-  const propertyId   = currentProperty?.id   || "prop-1";
-  const propertyName = currentProperty?.name || "This Property";
-  const inboundEmailAlias = `ota+${propertyId}@inbound.signinn.app`;
-  const icalFeedUrl = `${window.location.protocol}//${window.location.hostname}:8000/api/ical/${propertyId}.ics`;
+  // Push Form State
+  const [pushType, setPushType] = useState<"rate" | "inventory" | "restrictions" | "multiplier" | "noshow">("rate");
+  const [pushStartDate, setPushStartDate] = useState("2026-10-15");
+  const [pushEndDate, setPushEndDate] = useState("2026-10-18");
+  const [pushRoomCode, setPushRoomCode] = useState("executive");
+  const [pushRatePlanCode, setPushRatePlanCode] = useState("executive-s-ep");
+  const [pushRateAmount, setPushRateAmount] = useState<number>(2499);
+  const [pushInventoryCount, setPushInventoryCount] = useState<number>(10);
+  const [pushSelectedChannels, setPushSelectedChannels] = useState<string[]>(["gommt", "booking.com"]);
+  const [pushStopSell, setPushStopSell] = useState(false);
+  const [pushMinStay, setPushMinStay] = useState<number>(1);
+  const [pushCloseOnArrival, setPushCloseOnArrival] = useState(false);
+  const [pushCloseOnDeparture, setPushCloseOnDeparture] = useState(false);
+  const [pushMultiplierValue, setPushMultiplierValue] = useState<number>(1.15);
+  const [noShowBookingId, setNoShowBookingId] = useState("");
+  const [noShowChannel, setNoShowChannel] = useState<"booking.com" | "gommt">("gommt");
+  const [pushResult, setPushResult] = useState<any | null>(null);
 
-  const copyToClipboard = (text: string, label: string) => {
+  // Fetch Form State
+  const [fetchType, setFetchType] = useState<"inventory" | "rates" | "reservation">("inventory");
+  const [fetchStartDate, setFetchStartDate] = useState("2026-10-15");
+  const [fetchEndDate, setFetchEndDate] = useState("2026-10-18");
+  const [fetchResult, setFetchResult] = useState<any | null>(null);
+
+  // Webhook Simulator State
+  const [simAction, setSimAction] = useState<"book" | "modify" | "cancel">("book");
+  const [simBookingId, setSimBookingId] = useState(`AIO-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [simChannelName, setSimChannelName] = useState("Goibibo");
+  const [simGuestFirst, setSimGuestFirst] = useState("Aditya");
+  const [simGuestLast, setSimGuestLast] = useState("Singhania");
+  const [simGuestEmail, setSimGuestEmail] = useState("aditya.singhania@gmail.com");
+  const [simGuestPhone, setSimGuestPhone] = useState("+91 98201 44521");
+  const [simTotalAmount, setSimTotalAmount] = useState(14500);
+  const [simPah, setSimPah] = useState(false); // Pay at Hotel vs Prepaid
+  const [simSpecialReq, setSimSpecialReq] = useState("Late checkout requested, airport transfer needed");
+  const [simResult, setSimResult] = useState<any | null>(null);
+
+  const propertyName = currentProperty?.name || "Grand Azure Resort & Spa";
+  const hotelCode = aiosellConfig?.hotelCode || "sandbox-pms";
+  const partnerId = aiosellConfig?.partnerId || "sample-pms";
+  const webhookUrl = `${window.location.protocol}//${window.location.host}/api/channels/aiosell/webhook`;
+
+  const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedText(label);
+    setCopiedKey(key);
     showToast({ title: "Copied!", description: text, type: "success" });
-    setTimeout(() => setCopiedText(null), 2500);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
-  const handleSyncAll = async () => {
+
+  const handleForceSync = async () => {
     setIsSyncing(true);
-    try { await onForceSync(); showToast({ title: "Sync Complete", description: "All OTA feeds refreshed.", type: "success" }); }
-    finally { setIsSyncing(false); }
-  };
-  const handleRunSimulation = async () => {
     try {
-      const res = await simulateEmailMutation.mutateAsync({
-        channel: simChannel, property_id: propertyId,
-        guest_name: simGuestName, guest_phone: simGuestPhone, guest_email: simGuestEmail,
-        nights: Number(simNights), total_amount: Number(simAmount),
-        commission_rate: Number(simCommissionRate), payment_mode: simPaymentMode,
+      await onForceSync();
+      showToast({ title: "Sync Triggered", description: "Channels refreshed across Aiosell network.", type: "success" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Push Execution
+  const handleExecutePush = async () => {
+    setPushResult(null);
+    try {
+      if (pushType === "rate") {
+        const payload = {
+          updates: [
+            {
+              startDate: pushStartDate,
+              endDate: pushEndDate,
+              rates: [{ roomCode: pushRoomCode, rateplanCode: pushRatePlanCode, rate: Number(pushRateAmount) }],
+            },
+          ],
+        };
+        const res = await pushRatesMutation.mutateAsync(payload);
+        setPushResult(res);
+        showToast({ title: "Rates Pushed", description: "Pushed to Aiosell successfully!", type: "success" });
+      } else if (pushType === "inventory") {
+        const payload = {
+          updates: [
+            {
+              startDate: pushStartDate,
+              endDate: pushEndDate,
+              rooms: [{ roomCode: pushRoomCode, available: Number(pushInventoryCount) }],
+            },
+          ],
+        };
+        const res = await pushInventoryMutation.mutateAsync(payload);
+        setPushResult(res);
+        showToast({ title: "Inventory Pushed", description: "Availability updated on Aiosell!", type: "success" });
+      } else if (pushType === "restrictions") {
+        const payload = {
+          type: "inventory" as const,
+          to_channels: pushSelectedChannels,
+          updates: [
+            {
+              startDate: pushStartDate,
+              endDate: pushEndDate,
+              rooms: [
+                {
+                  roomCode: pushRoomCode,
+                  restrictions: {
+                    stopSell: pushStopSell,
+                    minimumStay: Number(pushMinStay),
+                    maximumStay: null,
+                    closeOnArrival: pushCloseOnArrival,
+                    closeOnDeparture: pushCloseOnDeparture,
+                    minimumStayArrival: null,
+                    maximumStayArrival: null,
+                    exactStayArrival: null,
+                    minimumAdvanceReservation: null,
+                    maximumAdvanceReservation: null,
+                  },
+                },
+              ],
+            },
+          ],
+        };
+        const res = await pushRestrictionsMutation.mutateAsync(payload);
+        setPushResult(res);
+        showToast({ title: "Restrictions Pushed", description: "Channel restrictions updated!", type: "success" });
+      } else if (pushType === "multiplier") {
+        const payload = {
+          multiplier: Number(pushMultiplierValue),
+          channels: pushSelectedChannels,
+        };
+        const res = await channelMultiplierMutation.mutateAsync(payload);
+        setPushResult(res);
+        showToast({ title: "Multiplier Applied", description: `Updated rate multiplier to ${pushMultiplierValue}x`, type: "success" });
+      } else if (pushType === "noshow") {
+        if (!noShowBookingId.trim()) {
+          showToast({ title: "Booking ID Required", description: "Enter valid OTA Booking Reference", type: "error" });
+          return;
+        }
+        const res = await markNoShowMutation.mutateAsync({
+          booking_id: noShowBookingId,
+          channel: noShowChannel,
+        });
+        setPushResult(res);
+        showToast({ title: "Marked No-Show", description: res.message || "Booking marked no-show", type: "success" });
+      }
+    } catch (err: any) {
+      setPushResult({ error: err.message || "Operation failed" });
+      showToast({ title: "Push Error", description: err.message || "Push failed", type: "error" });
+    }
+  };
+
+  // Fetch Execution
+  const handleExecuteFetch = async () => {
+    setFetchResult(null);
+    try {
+      const res = await fetchDataMutation.mutateAsync({
+        data_type: fetchType,
+        start_date: fetchStartDate,
+        end_date: fetchEndDate,
       });
-      showToast({ title: `${simChannel} Booking Ingested!`, description: `${res.ota_reservation_id} → Folio ${res.ref_code}`, type: "success" });
-      setIsSimulateModalOpen(false);
-    } catch (err: any) { showToast({ title: "Simulation Failed", description: err.message, type: "error" }); }
-  };
-  const handleLoadSampleCsv = () => {
-    setCsvContent("Booking Number,Guest Name,Check-in,Check-out,Gross Amount,Commission %,Status\nBK-BKG-889102,Karan Johar,2026-10-18,2026-10-21,28500,15%,Confirmed\nBK-MMT-443219,Priyanka Chopra,2026-10-22,2026-10-25,32000,18%,Confirmed\nBK-AGD-119283,Arjun Rampal,2026-10-27,2026-10-29,14500,15%,Confirmed");
-  };
-  const handleRunCsvReconcile = async () => {
-    if (!csvContent.trim()) { showToast({ title: "No CSV", description: "Load sample or paste your own.", type: "error" }); return; }
-    try {
-      const res = await reconcileCsvMutation.mutateAsync({ property_id: propertyId, csv_content: csvContent, channel: csvChannel });
-      setCsvResult(res);
-      showToast({ title: "Reconciliation Complete", description: res.message, type: "success" });
-    } catch (err: any) { showToast({ title: "Failed", description: err.message, type: "error" }); }
-  };
-  const handleSyncIcalInbound = async () => {
-    try {
-      const res = await syncIcalMutation.mutateAsync({ channelName: selectedIcalChannel, propertyId, icalUrl: inboundIcalUrl || undefined });
-      showToast({ title: "iCal Synced", description: res.message, type: "success" });
-    } catch (err: any) { showToast({ title: "Sync Failed", description: err.message, type: "error" }); }
+      setFetchResult(res);
+      showToast({ title: "Data Fetched", description: `Retrieved ${fetchType} from Aiosell API.`, type: "success" });
+    } catch (err: any) {
+      setFetchResult({ error: err.message || "Fetch failed" });
+      showToast({ title: "Fetch Error", description: err.message, type: "error" });
+    }
   };
 
-  const totalRevenue    = channels.reduce((a, c) => a + (c.revenueThisMonth || 0), 0);
-  const totalCommission = channels.reduce((a, c) => a + ((c.revenueThisMonth || 0) * c.commissionRate) / 100, 0);
-  const netPayout       = totalRevenue - totalCommission;
-  const connectedCount  = channels.filter(c => c.status === "Connected").length;
+  // Webhook Simulator Execution
+  const handleExecuteWebhookSimulation = async () => {
+    setSimResult(null);
+    try {
+      let payload: any;
+      if (simAction === "cancel") {
+        payload = {
+          action: "cancel",
+          hotelCode: hotelCode,
+          channel: simChannelName,
+          bookingId: simBookingId,
+        };
+      } else {
+        payload = {
+          action: simAction,
+          hotelCode: hotelCode,
+          channel: simChannelName,
+          bookingId: simBookingId,
+          cmBookingId: `CM-${simBookingId}`,
+          bookedOn: new Date().toISOString().replace("T", " ").substring(0, 19),
+          checkin: "2026-10-15",
+          checkout: "2026-10-18",
+          segment: "OTA",
+          specialRequests: simSpecialReq,
+          pah: simPah,
+          amount: {
+            amountAfterTax: Number(simTotalAmount),
+            amountBeforeTax: Math.round(Number(simTotalAmount) * 0.88),
+            tax: Math.round(Number(simTotalAmount) * 0.12),
+            currency: "INR",
+            commission: Math.round(Number(simTotalAmount) * 0.15),
+            tcs: 14.5,
+            tds: 2.9,
+          },
+          guest: {
+            firstName: simGuestFirst,
+            lastName: simGuestLast,
+            email: simGuestEmail,
+            phone: simGuestPhone,
+            address: {
+              line1: "51, MG Road",
+              city: "Bangalore",
+              state: "Karnataka",
+              country: "India",
+              zipCode: "560001",
+            },
+          },
+          rooms: [
+            {
+              roomCode: "executive",
+              rateplanCode: "executive-s-ep",
+              guestName: `${simGuestFirst} ${simGuestLast}`,
+              occupancy: { adults: 2, children: 0 },
+              prices: [
+                { date: "2026-10-15", sellRate: Math.round(Number(simTotalAmount) / 3) },
+                { date: "2026-10-16", sellRate: Math.round(Number(simTotalAmount) / 3) },
+                { date: "2026-10-17", sellRate: Math.round(Number(simTotalAmount) / 3) },
+              ],
+            },
+          ],
+        };
+      }
 
-  const TABS: { id: TabType; label: string; icon: React.ReactNode; badge?: string }[] = [
-    { id: "overview", label: "OTA Portals",    icon: <Globe className="w-3.5 h-3.5" />,          badge: String(channels.length) },
-    { id: "email",    label: "Email Ingestion", icon: <Mail className="w-3.5 h-3.5" />,           badge: ingestionLogs.length > 0 ? String(ingestionLogs.length) : undefined },
-    { id: "csv",      label: "CSV Reconciler",  icon: <FileSpreadsheet className="w-3.5 h-3.5" /> },
-    { id: "ical",     label: "iCal Calendars",  icon: <Calendar className="w-3.5 h-3.5" /> },
-  ];
+      const res = await simulateWebhookMutation.mutateAsync(payload);
+      setSimResult(res);
+      showToast({
+        title: `Aiosell Webhook (${simAction.toUpperCase()}) Processed`,
+        description: res.message || "Reservation synced in HMS!",
+        type: "success",
+      });
+      // Generate new booking id for next test
+      setSimBookingId(`AIO-${Math.floor(100000 + Math.random() * 900000)}`);
+    } catch (err: any) {
+      setSimResult({ error: err.message || "Webhook processing failed" });
+      showToast({ title: "Webhook Failed", description: err.message, type: "error" });
+    }
+  };
+
+  // Filter channels
+  const filteredChannels = channels.filter((c) => {
+    const matchesCategory =
+      categoryFilter === "ALL" ||
+      (c.category && c.category.toUpperCase() === categoryFilter.toUpperCase());
+    const matchesSearch =
+      c.channelName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.aiosell_slug && c.aiosell_slug.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
+
+  const totalMonthlyRev = channels.reduce((sum, c) => sum + (c.revenueThisMonth || 0), 0);
+  const totalBookings = channels.reduce((sum, c) => sum + (c.bookingsThisMonth || 0), 0);
+  const activeCount = channels.filter((c) => c.status === "Connected").length;
 
   return (
     <div className="space-y-4">
-
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-            <Globe className="w-4 h-4 text-white" />
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <Globe className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 leading-tight">OTA Distribution Hub</h1>
-            <p className="text-[11px] text-slate-500">{propertyName} · Hybrid tracking — no channel manager fees</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setIsSimulateModalOpen(true)} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 hover:border-blue-300 hover:text-blue-700 transition-all shadow-sm cursor-pointer">
-            <Zap className="w-3.5 h-3.5 text-amber-500" /> Test Booking
-          </button>
-          <button onClick={handleSyncAll} disabled={isSyncing} className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-sm cursor-pointer disabled:opacity-60">
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} /> Sync Feeds
-          </button>
-        </div>
-      </div>
-
-      {/* KPI STRIP */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "OTA Revenue",      value: formatCurrency(totalRevenue),    sub: "This month",         icon: <IndianRupee className="w-4 h-4 text-blue-400" />,   accent: "text-slate-900" },
-          { label: "Commission Paid",  value: formatCurrency(totalCommission), sub: `Avg ${totalRevenue > 0 ? ((totalCommission/totalRevenue)*100).toFixed(1) : 0}%`, icon: <TrendingDown className="w-4 h-4 text-rose-400" />, accent: "text-rose-600" },
-          { label: "Net Hotel Payout", value: formatCurrency(netPayout),       sub: "After OTA cut",      icon: <TrendingUp className="w-4 h-4 text-emerald-400" />, accent: "text-emerald-600" },
-          { label: "Auto-Ingested",    value: `${ingestionLogs.length + 18}`,  sub: "Email + iCal total", icon: <BarChart3 className="w-4 h-4 text-purple-400" />,   accent: "text-slate-900" },
-        ].map(kpi => (
-          <div key={kpi.label} className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
-              {kpi.icon}
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-900 leading-tight">OTA Channel Manager</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Aiosell Live Engine
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                Sandbox Mode Active
+              </span>
             </div>
-            <div className={`text-lg font-bold ${kpi.accent}`}>{kpi.value}</div>
-            <div className="text-[11px] text-slate-400 mt-0.5">{kpi.sub}</div>
+            <p className="text-xs text-slate-500">
+              {propertyName} · 2-way live sync for Rates, Inventory, Restrictions & Reservations
+            </p>
           </div>
-        ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href="https://live.aiosell.com"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-blue-700 transition shadow-sm"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+            Aiosell Sandbox UI
+          </a>
+          <button
+            onClick={handleForceSync}
+            disabled={isSyncing}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm disabled:opacity-60 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            Sync All Feeds
+          </button>
+        </div>
       </div>
 
-      {/* MAIN TABS CARD */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-200 overflow-x-auto">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3.5 text-xs font-semibold border-b-2 transition-colors cursor-pointer shrink-0 ${
-                activeTab === tab.id
-                  ? "border-blue-600 text-blue-600 bg-blue-50/50"
-                  : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-              }`}>
-              {tab.icon} {tab.label}
-              {tab.badge && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab.id ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          ))}
+      {/* QUICK SUMMARY METRICS BAR */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Connected Partners</p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-xl font-bold text-slate-900">{activeCount}</span>
+            <span className="text-xs text-slate-500">of {channels.length} Integrations</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${(activeCount / (channels.length || 1)) * 100}%` }} />
+          </div>
         </div>
-        <div className="p-5">
-          {/* ===== TAB 1: OTA PORTALS ===== */}
-          {activeTab === "overview" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div className="flex-1 text-xs">
-                  <span className="font-semibold text-emerald-800">{connectedCount} of {channels.length} channels active</span>
-                  <span className="text-emerald-600 ml-1.5">· Tracked via email parsing, iCal sync and CSV reconciliation. No channel manager needed.</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {channels.map(ch => {
-                  const isConnected = ch.status === "Connected";
-                  const channelName = (ch.channelName as string) || "";
-                  const logo = OTA_LOGOS[channelName] || { initials: channelName?.slice(0,2)?.toUpperCase() || "OT", color: "#64748b", bg: "#f1f5f9" };
-                  const commission = ch.commissionRate || 0;
-                  const revenue    = ch.revenueThisMonth || 0;
-                  const netRev     = revenue - (revenue * commission) / 100;
-                  const markupPct  = ch.rateMultiplier && ch.rateMultiplier > 1 ? Math.round((ch.rateMultiplier - 1) * 100) : 0;
-                  return (
-                    <div key={ch.id} className={`rounded-xl border p-4 transition-all hover:shadow-md ${isConnected ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50/50 opacity-70"}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black" style={{ backgroundColor: logo.bg, color: logo.color }}>
-                            {logo.initials}
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-900">{channelName}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{(ch as any).code || "OTA"}</div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">OTA Revenue (30d)</p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-xl font-bold text-slate-900">{formatCurrency(totalMonthlyRev)}</span>
+          </div>
+          <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-1">
+            <TrendingUp className="w-3 h-3" /> +18.4% vs last cycle
+          </p>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">OTA Bookings Ingested</p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-xl font-bold text-slate-900">{totalBookings}</span>
+            <span className="text-xs text-slate-500">Reservations</span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">0 sync collision errors</p>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Channel Engine</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-sm font-bold text-blue-700">Aiosell REST v2</span>
+          </div>
+          <p className="text-[11px] text-slate-500 truncate mt-1">Basic Auth · Instant Webhook</p>
+        </div>
+      </div>
+
+      {/* AIOSELL CREDENTIALS & ENDPOINT DRAWER CARD */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-xl p-4 shadow-md border border-slate-800">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-sm font-semibold tracking-wide">Aiosell Partner Integration Credentials</h2>
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                Sandbox Ready
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 max-w-2xl">
+              Rate, Inventory & Restrictions push directly to Aiosell endpoints. Aiosell pushes OTA bookings back via our secure Webhook endpoint.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-slate-400">Hotel Code:</span>
+              <code className="text-emerald-400 font-mono font-semibold">{hotelCode}</code>
+              <button
+                onClick={() => copyToClipboard(hotelCode, "hotelCode")}
+                className="text-slate-400 hover:text-white transition ml-1 cursor-pointer"
+                title="Copy Hotel Code"
+              >
+                {copiedKey === "hotelCode" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <div className="bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-slate-400">Partner ID:</span>
+              <code className="text-indigo-300 font-mono font-semibold">{partnerId}</code>
+              <button
+                onClick={() => copyToClipboard(partnerId, "partnerId")}
+                className="text-slate-400 hover:text-white transition ml-1 cursor-pointer"
+                title="Copy Partner ID"
+              >
+                {copiedKey === "partnerId" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            <div className="bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-slate-400">Basic Auth:</span>
+              <code className="text-amber-300 font-mono font-semibold">aiosell : AIOsell@123</code>
+              <button
+                onClick={() => copyToClipboard("aiosell:AIOsell@123", "auth")}
+                className="text-slate-400 hover:text-white transition ml-1 cursor-pointer"
+                title="Copy Basic Auth"
+              >
+                {copiedKey === "auth" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-slate-300">
+            <span className="text-slate-400">Aiosell Sandbox Portal Login:</span>
+            <span className="text-white font-medium">live.aiosell.com</span>
+            <span className="text-slate-400">· User/Pass:</span>
+            <span className="font-mono text-emerald-300 font-medium">sandboxpms / sandboxpms</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-300">
+            <span className="text-slate-400">Inbound Webhook:</span>
+            <code className="text-cyan-300 font-mono text-[11px] truncate max-w-xs">{webhookUrl}</code>
+            <button
+              onClick={() => copyToClipboard(webhookUrl, "webhook")}
+              className="text-slate-400 hover:text-white transition cursor-pointer"
+              title="Copy Webhook URL"
+            >
+              {copiedKey === "webhook" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* NAVIGATION TABS */}
+      <div className="flex items-center gap-2 border-b border-slate-200">
+        <button
+          onClick={() => setActiveTab("channels")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === "channels"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          Partner Channels ({channels.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("push_suite")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === "push_suite"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Send className="w-3.5 h-3.5 text-indigo-600" />
+          Push Rates & Inventory
+        </button>
+        <button
+          onClick={() => setActiveTab("fetch_verify")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === "fetch_verify"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Database className="w-3.5 h-3.5 text-amber-600" />
+          Fetch & Inspect API
+        </button>
+        <button
+          onClick={() => setActiveTab("webhook")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === "webhook"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5 text-emerald-600" />
+          Inbound Webhook Tester
+        </button>
+        <button
+          onClick={() => setActiveTab("logs")}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === "logs"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+          Sync Logs ({ingestionLogs.length})
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TAB 1: ALL CHANNELS GRID (SPREADSHEET PARTNERS) */}
+      {/* ========================================================================= */}
+      {activeTab === "channels" && (
+        <div className="space-y-4">
+          {/* FILTER AND SEARCH CONTROLS */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/80 p-2.5 rounded-lg border border-slate-200">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(["ALL", "OTA", "CM", "Booking Engine", "OTA Aggregator"] as CategoryFilter[]).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition cursor-pointer ${
+                    categoryFilter === cat
+                      ? "bg-blue-600 text-white shadow-xs font-semibold"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {cat === "ALL" ? `All (${channels.length})` : cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search channel or OTA slug..."
+                className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+            </div>
+          </div>
+
+          {/* CHANNELS GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filteredChannels.map((channel) => {
+              const brand = OTA_BRAND_COLORS[channel.channelName] || {
+                initials: channel.code.substring(0, 2).toUpperCase(),
+                color: "#1e293b",
+                bg: "#f1f5f9",
+              };
+              const isConnected = channel.status === "Connected";
+              const multiplier = channel.rateMultiplier || 1.0;
+
+              return (
+                <div
+                  key={channel.id}
+                  className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    {/* TOP: LOGO, NAME, STATUS */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
+                          style={{ backgroundColor: brand.bg, color: brand.color }}
+                        >
+                          {brand.initials}
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-slate-900 leading-tight">{channel.channelName}</h3>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                              {channel.code}
+                            </span>
+                            <span className="text-[10px] text-blue-600 font-mono font-medium">
+                              slug: {channel.aiosell_slug || "—"}
+                            </span>
                           </div>
                         </div>
-                        <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${isConnected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-400"}`} />
-                          {isConnected ? "Active" : "Paused"}
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={() => onToggleChannelStatus(channel.id)}
+                          className={`px-2 py-0.5 text-[11px] font-semibold rounded-full border transition cursor-pointer ${
+                            isConnected
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                              : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+                          }`}
+                        >
+                          {isConnected ? "Connected" : "Disconnected"}
+                        </button>
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded">
+                          {channel.category || "OTA"}
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 mb-3">
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
-                          <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Commission</div>
-                          <div className="text-sm font-bold text-rose-600 mt-0.5">{commission}%</div>
-                        </div>
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
-                          <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Markup</div>
-                          <div className="text-sm font-bold text-blue-600 mt-0.5">{markupPct > 0 ? `+${markupPct}%` : "Parity"}</div>
-                        </div>
-                        <div className="bg-slate-50 rounded-lg p-2 text-center">
-                          <div className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">Net Rev</div>
-                          <div className="text-xs font-bold text-emerald-600 mt-0.5">{formatCurrency(netRev)}</div>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-100"><Mail className="w-2.5 h-2.5" />Email</span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-semibold border border-purple-100"><Calendar className="w-2.5 h-2.5" />iCal</span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 text-[10px] font-semibold border border-slate-200"><FileSpreadsheet className="w-2.5 h-2.5" />CSV</span>
-                      </div>
-                      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
-                        <button onClick={() => onToggleChannelStatus(ch.id)} className="text-[11px] font-semibold text-slate-400 hover:text-slate-700 cursor-pointer transition-colors">
-                          {isConnected ? "Pause" : "Activate"}
-                        </button>
-                        <button onClick={() => setSelectedChannel(ch)} className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all cursor-pointer">
-                          <Sliders className="w-3 h-3" /> Rate Rules
-                        </button>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
-          {/* ===== TAB 2: EMAIL INGESTION ===== */}
-          {activeTab === "email" && (
-            <div className="space-y-5">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Mail className="w-4 h-4 text-blue-400" />
-                      <span className="text-[11px] font-bold text-blue-300 uppercase tracking-widest">Your Property Forwarder Alias</span>
-                    </div>
-                    <div className="font-mono text-sm font-bold text-white bg-white/10 border border-white/20 rounded-lg px-3 py-2 mb-2 select-all break-all">
-                      {inboundEmailAlias}
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Add this to your OTA Extranets or create a Gmail auto-forward rule. Every new booking email is auto-parsed into a reservation and folio within 30 seconds.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0">
-                    <button onClick={() => copyToClipboard(inboundEmailAlias, "email")} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer">
-                      {copiedText === "email" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedText === "email" ? "Copied!" : "Copy Address"}
-                    </button>
-                    <button onClick={() => setIsSimulateModalOpen(true)} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer">
-                      <Play className="w-3.5 h-3.5" /> Test Ingestion
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">How to Connect — 3 Methods</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {SETUP_STEPS.map(step => (
-                    <div key={step.step} className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-lg leading-none mt-0.5">{step.icon}</span>
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-black shrink-0">{step.step}</span>
-                            <span className="text-xs font-bold text-slate-800">{step.title}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">{step.desc}</p>
-                        </div>
+                    {/* METRICS ROW */}
+                    <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-slate-100 text-center mb-3">
+                      <div>
+                        <p className="text-[10px] text-slate-500">Revenue</p>
+                        <p className="text-xs font-bold text-slate-800">{formatCurrency(channel.revenueThisMonth || 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500">Bookings</p>
+                        <p className="text-xs font-bold text-slate-800">{channel.bookingsThisMonth || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500">Commission</p>
+                        <p className="text-xs font-bold text-slate-800">{channel.commissionRate}%</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Live Ingested Bookings</h3>
-                  <button onClick={() => setIsSimulateModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all cursor-pointer">
-                    <Play className="w-3 h-3" /> Simulate
-                  </button>
-                </div>
-                {ingestionLogs.length === 0 ? (
-                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
-                    <Mail className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-semibold text-slate-500">No bookings ingested yet</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Connect your OTA extranet or run a simulation.</p>
-                    <button onClick={() => setIsSimulateModalOpen(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all cursor-pointer">
-                      <Play className="w-3 h-3" /> Run Test Simulation
-                    </button>
                   </div>
-                ) : (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                          <tr className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                            {["Time","Channel","OTA Ref","Guest","Dates","Gross","Commission","Net Payout","Status"].map(h => <th key={h} className="px-3 py-2.5">{h}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {ingestionLogs.map(log => {
-                            const net = log.total_amount - (log.commission_amount || 0);
-                            return (
-                              <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                                <td className="px-3 py-2.5 font-mono text-slate-400 text-[11px] whitespace-nowrap">{log.created_at ? log.created_at?.slice(0,16)?.replace("T"," ") : "Just now"}</td>
-                                <td className="px-3 py-2.5"><Badge variant="channel" channel={log.channel} size="sm" /></td>
-                                <td className="px-3 py-2.5 font-mono font-semibold text-blue-600">{log.ota_reservation_id}</td>
-                                <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">{log.guest_name}</td>
-                                <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{log.check_in_date} → {log.check_out_date}</td>
-                                <td className="px-3 py-2.5 font-semibold text-slate-800">{formatCurrency(log.total_amount)}</td>
-                                <td className="px-3 py-2.5 text-rose-600">{formatCurrency(log.commission_amount || 0)}</td>
-                                <td className="px-3 py-2.5 font-bold text-emerald-600">{formatCurrency(net)}</td>
-                                <td className="px-3 py-2.5">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${log.status === "Cancelled" ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
-                                    {log.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+
+                  {/* BOTTOM: RATE MULTIPLIER SLIDER / CONTROL */}
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
+                        <SlidersHorizontal className="w-3 h-3 text-slate-500" /> Rate Multiplier
+                      </span>
+                      <span className="font-mono font-bold text-blue-700 text-xs">
+                        {multiplier.toFixed(2)}x ({multiplier >= 1 ? `+${Math.round((multiplier - 1) * 100)}%` : `-${Math.round((1 - multiplier) * 100)}%`})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0.80"
+                        max="1.50"
+                        step="0.05"
+                        value={multiplier}
+                        onChange={(e) => onUpdateMarkup(channel.id, parseFloat(e.target.value))}
+                        className="w-full accent-blue-600 cursor-pointer h-1.5"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!channel.aiosell_slug) return;
+                          try {
+                            await channelMultiplierMutation.mutateAsync({
+                              multiplier: multiplier,
+                              channels: [channel.aiosell_slug],
+                            });
+                            showToast({
+                              title: "Aiosell Multiplier Pushed",
+                              description: `${channel.channelName} updated to ${multiplier.toFixed(2)}x factor`,
+                              type: "success",
+                            });
+                          } catch (err: any) {
+                            showToast({ title: "Multiplier Failed", description: err.message, type: "error" });
+                          }
+                        }}
+                        className="px-2 py-1 text-[10px] font-bold bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded transition shrink-0 cursor-pointer"
+                        title="Push this multiplier to Aiosell"
+                      >
+                        Push
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-          {/* ===== TAB 3: CSV RECONCILER ===== */}
-          {activeTab === "csv" && (
-            <div className="space-y-5">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Smart Extranet CSV Reconciler</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Download your monthly reservation report from Booking.com, MakeMyTrip or Agoda Extranet. Paste it here for 1-click folio creation and commission auditing.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-semibold text-slate-700 shrink-0">OTA Source</label>
-                    <select value={csvChannel} onChange={e => setCsvChannel(e.target.value)} className="flex-1 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700">
-                      <option value="Auto-detect">Auto-detect from CSV</option>
-                      <option value="Booking.com">Booking.com</option>
-                      <option value="MakeMyTrip">MakeMyTrip / InGoMMT</option>
-                      <option value="Agoda">Agoda YCS</option>
-                      <option value="Expedia">Expedia</option>
+      {/* ========================================================================= */}
+      {/* TAB 2: PUSH RATES & INVENTORY SUITE */}
+      {/* ========================================================================= */}
+      {activeTab === "push_suite" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Aiosell Push Dispatcher</h2>
+              <p className="text-xs text-slate-500">
+                Directly push rates, inventory counts, restrictions, or channel multipliers to Aiosell Channel Manager.
+              </p>
+            </div>
+
+            {/* ACTION SELECTOR */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {[
+                { id: "rate", label: "Push Rates" },
+                { id: "inventory", label: "Push Inventory" },
+                { id: "restrictions", label: "Restrictions" },
+                { id: "multiplier", label: "Multiplier" },
+                { id: "noshow", label: "Mark No-Show" },
+              ].map((btn) => (
+                <button
+                  key={btn.id}
+                  onClick={() => setPushType(btn.id as any)}
+                  className={`py-2 px-2 text-xs font-semibold rounded-lg border text-center transition cursor-pointer ${
+                    pushType === btn.id
+                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+
+            {/* DYNAMIC FORM BASED ON PUSH TYPE */}
+            <div className="space-y-3 pt-2">
+              {pushType !== "multiplier" && pushType !== "noshow" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date (Inclusive)</label>
+                    <input
+                      type="date"
+                      value={pushStartDate}
+                      onChange={(e) => setPushStartDate(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">End Date (Inclusive)</label>
+                    <input
+                      type="date"
+                      value={pushEndDate}
+                      onChange={(e) => setPushEndDate(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* RATE PUSH FIELDS */}
+              {pushType === "rate" && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Room Code</label>
+                    <select
+                      value={pushRoomCode}
+                      onChange={(e) => setPushRoomCode(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <option value="executive">executive (Executive Room)</option>
+                      <option value="suite">suite (Suite Room)</option>
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-semibold text-slate-700">CSV Data</label>
-                      <button onClick={handleLoadSampleCsv} className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer">
-                        <FileSpreadsheet className="w-3 h-3" /> Load Sample
-                      </button>
-                    </div>
-                    <textarea value={csvContent} onChange={e => setCsvContent(e.target.value)}
-                      placeholder={"Booking Number,Guest Name,Check-in,Check-out,Gross Amount,Commission %,Status\nBK-BKG-889102,Rahul Sharma,2026-10-18,2026-10-21,28500,15%,Confirmed"}
-                      rows={8} className="w-full text-[11px] font-mono p-3 border border-slate-200 rounded-xl bg-slate-50 resize-none text-slate-700 placeholder-slate-300 focus:outline-none focus:border-blue-400" />
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Rate Plan Code</label>
+                    <select
+                      value={pushRatePlanCode}
+                      onChange={(e) => setPushRatePlanCode(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <option value="executive-s-ep">executive-s-ep (Room Only - EP)</option>
+                      <option value="executive-s-cp">executive-s-cp (Breakfast - CP)</option>
+                      <option value="suite-s-ep">suite-s-ep (Suite Room Only)</option>
+                      <option value="suite-d-cp">suite-d-cp (Suite Breakfast)</option>
+                    </select>
                   </div>
-                  <button onClick={handleRunCsvReconcile} disabled={reconcileCsvMutation.isPending} className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all cursor-pointer disabled:opacity-60">
-                    {reconcileCsvMutation.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                    {reconcileCsvMutation.isPending ? "Reconciling…" : "Reconcile & Import Folios"}
-                  </button>
-                </div>
-                <div>
-                  {!csvResult ? (
-                    <div className="h-full min-h-48 bg-slate-50 border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-8 text-center">
-                      <FileSpreadsheet className="w-8 h-8 text-slate-300 mb-2" />
-                      <p className="text-sm font-semibold text-slate-400">Results appear here</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Load sample CSV and click Reconcile</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: "Processed",      value: csvResult.total_rows,         accent: "text-slate-900" },
-                          { label: "New Folios",     value: csvResult.new_folios_created, accent: "text-blue-600" },
-                          { label: "Gross Revenue",  value: formatCurrency(csvResult.total_revenue),    accent: "text-slate-900" },
-                          { label: "OTA Commission", value: formatCurrency(csvResult.total_commission), accent: "text-rose-600" },
-                        ].map(m => (
-                          <div key={m.label} className="bg-white border border-slate-200 rounded-lg p-2.5 text-center">
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">{m.label}</div>
-                            <div className={`text-sm font-bold ${m.accent} mt-0.5`}>{m.value}</div>
-                          </div>
-                        ))}
-                      </div>
-                      {csvResult.records && (
-                        <div className="border border-slate-200 rounded-xl overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs text-left">
-                              <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                                  {["Channel","Booking ID","Guest","Dates","Amount","Commission","Status"].map(h => <th key={h} className="px-3 py-2">{h}</th>)}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {csvResult.records.map((rec: any, idx: number) => (
-                                  <tr key={idx} className="hover:bg-slate-50/50">
-                                    <td className="px-3 py-2"><Badge variant="channel" channel={rec.channel || csvResult.channel || "Booking.com"} size="sm" /></td>
-                                    <td className="px-3 py-2 font-mono text-blue-600 font-semibold text-[11px]">{rec.ota_id}</td>
-                                    <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{rec.guest_name}</td>
-                                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{rec.check_in} → {rec.check_out}</td>
-                                    <td className="px-3 py-2 font-semibold text-slate-800">{formatCurrency(rec.amount)}</td>
-                                    <td className="px-3 py-2 text-rose-600">{formatCurrency(rec.commission)}</td>
-                                    <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${rec.action === "created" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}>{rec.status}</span></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===== TAB 4: iCal CALENDARS ===== */}
-          {activeTab === "ical" && (
-            <div className="space-y-5">
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center shrink-0"><Calendar className="w-4 h-4 text-purple-600" /></div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900">Outbound Calendar Feed (RFC 5545)</h3>
-                      <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">Live</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Plug this link into Airbnb, Booking.com, or VRBO calendar sync settings. OTAs poll this feed and block dates automatically.</p>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nightly Rate (INR)</label>
+                    <input
+                      type="number"
+                      value={pushRateAmount}
+                      onChange={(e) => setPushRateAmount(Number(e.target.value))}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                    />
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono text-[11px] text-slate-600 min-w-0">
-                    <Link2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                    <span className="truncate">{icalFeedUrl}</span>
-                  </div>
-                  <button onClick={() => copyToClipboard(icalFeedUrl, "ical")} className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all cursor-pointer shrink-0">
-                    {copiedText === "ical" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedText === "ical" ? "Copied!" : "Copy URL"}
-                  </button>
-                  <a href={icalFeedUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
-                    <ExternalLink className="w-3.5 h-3.5" /> Preview
-                  </a>
-                </div>
-              </div>
+              )}
 
-              <div className="bg-white border border-slate-200 rounded-xl p-4">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0"><Calendar className="w-4 h-4 text-blue-600" /></div>
+              {/* INVENTORY PUSH FIELDS */}
+              {pushType === "inventory" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Inbound OTA Calendar Sync</h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Paste the iCal export URL from Airbnb or Booking.com. SIGNINN polls it to block those OTA dates on your tape chart.</p>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Room Code</label>
+                    <select
+                      value={pushRoomCode}
+                      onChange={(e) => setPushRoomCode(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <option value="executive">executive (Executive Room)</option>
+                      <option value="suite">suite (Suite Room)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Available Room Count</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={pushInventoryCount}
+                      onChange={(e) => setPushInventoryCount(Number(e.target.value))}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                    />
                   </div>
                 </div>
+              )}
+
+              {/* RESTRICTIONS FIELDS */}
+              {pushType === "restrictions" && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">OTA Source</label>
-                      <select value={selectedIcalChannel} onChange={e => setSelectedIcalChannel(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white">
-                        <option value="Airbnb">Airbnb</option>
-                        <option value="Booking.com">Booking.com</option>
-                        <option value="VRBO">VRBO / Homestay</option>
-                        <option value="Agoda">Agoda YCS</option>
-                      </select>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Target Channels</label>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {["agoda", "booking.com", "gommt", "airbnb", "expedia"].map((ch) => (
+                          <label key={ch} className="inline-flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={pushSelectedChannels.includes(ch)}
+                              onChange={(e) => {
+                                if (e.target.checked) setPushSelectedChannels([...pushSelectedChannels, ch]);
+                                else setPushSelectedChannels(pushSelectedChannels.filter((c) => c !== ch));
+                              }}
+                              className="accent-blue-600 rounded"
+                            />
+                            <span>{ch}</span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">OTA iCal Export URL</label>
-                      <input type="url" value={inboundIcalUrl} onChange={e => setInboundIcalUrl(e.target.value)} placeholder="https://www.airbnb.com/calendar/ical/xxxx.ics" className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 font-mono placeholder-slate-300" />
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Minimum Stay (Nights)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={pushMinStay}
+                        onChange={(e) => setPushMinStay(Number(e.target.value))}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                      />
                     </div>
                   </div>
-                  <button onClick={handleSyncIcalInbound} disabled={syncIcalMutation.isPending} className="flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all cursor-pointer disabled:opacity-60">
-                    <RefreshCw className={`w-3.5 h-3.5 ${syncIcalMutation.isPending ? "animate-spin" : ""}`} />
-                    {syncIcalMutation.isPending ? "Syncing…" : "Sync & Block Dates on Tape Chart"}
-                  </button>
-                </div>
-              </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <h4 className="text-xs font-bold text-blue-800 mb-2.5 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> How 2-Way iCal Works
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-blue-700">
-                  <div className="flex items-start gap-2"><ArrowRight className="w-3 h-3 mt-0.5 shrink-0" /><span>SIGNINN publishes a tokenized <strong>.ics</strong> feed of your confirmed reservations</span></div>
-                  <div className="flex items-start gap-2"><ArrowRight className="w-3 h-3 mt-0.5 shrink-0" /><span>OTAs subscribe to this URL and <strong>block those dates</strong> in their booking calendar</span></div>
-                  <div className="flex items-start gap-2"><ArrowRight className="w-3 h-3 mt-0.5 shrink-0" /><span>You import OTA calendars so <strong>walk-in staff see OTA blocks</strong> — zero double bookings</span></div>
+                  <div className="flex flex-wrap items-center gap-4 pt-2">
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pushStopSell}
+                        onChange={(e) => setPushStopSell(e.target.checked)}
+                        className="accent-red-600 w-4 h-4 rounded"
+                      />
+                      <span className="font-semibold text-red-600">Stop-Sell (Close All Bookings)</span>
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pushCloseOnArrival}
+                        onChange={(e) => setPushCloseOnArrival(e.target.checked)}
+                        className="accent-amber-600 w-4 h-4 rounded"
+                      />
+                      <span>Close on Arrival (CTA)</span>
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pushCloseOnDeparture}
+                        onChange={(e) => setPushCloseOnDeparture(e.target.checked)}
+                        className="accent-amber-600 w-4 h-4 rounded"
+                      />
+                      <span>Close on Departure (CTD)</span>
+                    </label>
+                  </div>
                 </div>
+              )}
+
+              {/* MULTIPLIER FIELDS */}
+              {pushType === "multiplier" && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Multiplier Factor (e.g. 1.25 = +25%)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={pushMultiplierValue}
+                        onChange={(e) => setPushMultiplierValue(Number(e.target.value))}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Target Channels</label>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {["gommt", "airbnb", "booking.com", "agoda"].map((ch) => (
+                          <label key={ch} className="inline-flex items-center gap-1 bg-slate-50 px-2 py-1 rounded border border-slate-200 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={pushSelectedChannels.includes(ch)}
+                              onChange={(e) => {
+                                if (e.target.checked) setPushSelectedChannels([...pushSelectedChannels, ch]);
+                                else setPushSelectedChannels(pushSelectedChannels.filter((c) => c !== ch));
+                              }}
+                              className="accent-blue-600 rounded"
+                            />
+                            <span>{ch}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MARK NO-SHOW FIELDS */}
+              {pushType === "noshow" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">OTA Booking ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 111222350"
+                      value={noShowBookingId}
+                      onChange={(e) => setNoShowBookingId(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Supported Channel</label>
+                    <select
+                      value={noShowChannel}
+                      onChange={(e) => setNoShowChannel(e.target.value as any)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white"
+                    >
+                      <option value="gommt">gommt (MakeMyTrip / Goibibo)</option>
+                      <option value="booking.com">booking.com</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-3">
+                <Button
+                  onClick={handleExecutePush}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-2"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Execute Aiosell Push
+                </Button>
               </div>
             </div>
-          )}
+          </div>
 
+          {/* RESPONSE VIEWER */}
+          <div className="bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Aiosell API Response</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+
+              {pushResult ? (
+                <pre className="text-[11px] text-emerald-300 overflow-x-auto whitespace-pre-wrap max-h-96">
+                  {JSON.stringify(pushResult, null, 2)}
+                </pre>
+              ) : (
+                <div className="text-slate-500 py-12 text-center">
+                  <Send className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p>Execute an action to inspect the raw response from Aiosell Channel Manager.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 text-[10px] text-slate-400">
+              Target Endpoint: <code className="text-cyan-300">live.aiosell.com/api/v2/cm/...</code>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* SIMULATE MODAL */}
-      {isSimulateModalOpen && (
-        <Modal isOpen={isSimulateModalOpen} onClose={() => setIsSimulateModalOpen(false)} title="Simulate Inbound OTA Booking">
-          <div className="space-y-4 text-xs">
-            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 leading-relaxed">
-              Creates a live test booking as if it arrived via OTA confirmation email — folio, GST, and commission auto-calculated.
+      {/* ========================================================================= */}
+      {/* TAB 3: FETCH & INSPECT AIOSELL DATA */}
+      {/* ========================================================================= */}
+      {activeTab === "fetch_verify" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Fetch from Aiosell</h2>
+              <p className="text-xs text-slate-500">
+                Poll the live state of inventory, rates, or bookings as recorded on Aiosell Channel Manager.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="space-y-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">OTA Channel</label>
-                <select value={simChannel} onChange={e => setSimChannel(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs">
-                  {["Booking.com","MakeMyTrip","Agoda","Airbnb","Expedia"].map(o => <option key={o}>{o}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Payment Mode</label>
-                <select value={simPaymentMode} onChange={e => setSimPaymentMode(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg bg-white text-xs">
-                  <option value="Virtual Card (VCC)">Virtual Card (VCC) — Prepaid</option>
-                  <option value="Hotel Collect">Hotel Collect (Pay at Hotel)</option>
-                </select>
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Guest Name</label>
-                <input type="text" value={simGuestName} onChange={e => setSimGuestName(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg text-xs" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Guest Phone</label>
-                <input type="text" value={simGuestPhone} onChange={e => setSimGuestPhone(e.target.value)} className="w-full p-2 border border-slate-200 rounded-lg text-xs" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Nights</label>
-                <input type="number" min={1} max={14} value={simNights} onChange={e => setSimNights(Number(e.target.value))} className="w-full p-2 border border-slate-200 rounded-lg text-xs" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Gross Tariff (₹)</label>
-                <input type="number" value={simAmount} onChange={e => setSimAmount(Number(e.target.value))} className="w-full p-2 border border-slate-200 rounded-lg text-xs font-semibold" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">OTA Commission %</label>
-                <input type="number" value={simCommissionRate} onChange={e => setSimCommissionRate(Number(e.target.value))} className="w-full p-2 border border-slate-200 rounded-lg text-xs" />
-              </div>
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Net Hotel Payout</label>
-                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg font-bold text-emerald-700 text-xs">
-                  {formatCurrency(simAmount - (simAmount * simCommissionRate) / 100)}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Dataset Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["inventory", "rates", "reservation"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setFetchType(t)}
+                      className={`py-1.5 px-2 text-xs font-semibold rounded-lg border capitalize transition cursor-pointer ${
+                        fetchType === t ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <Button variant="ghost" size="sm" onClick={() => setIsSimulateModalOpen(false)}>Cancel</Button>
-              <Button variant="primary" size="sm" onClick={handleRunSimulation} isLoading={simulateEmailMutation.isPending} leftIcon={<Play className="w-3.5 h-3.5" />}>
-                Inject Test Booking
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={fetchStartDate}
+                  onChange={(e) => setFetchStartDate(e.target.value)}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={fetchEndDate}
+                  onChange={(e) => setFetchEndDate(e.target.value)}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                />
+              </div>
+
+              <Button
+                onClick={handleExecuteFetch}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-2"
+              >
+                <Database className="w-3.5 h-3.5" />
+                Query Aiosell API
               </Button>
             </div>
           </div>
-        </Modal>
-      )}
 
-      {/* RATE RULES MODAL */}
-      {selectedChannel && (
-        <Modal isOpen={!!selectedChannel} onClose={() => setSelectedChannel(null)} title={`${selectedChannel.channelName} — Rate Parity Rules`}>
-          <div className="space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <p className="text-slate-600 leading-relaxed">
-                <strong>{selectedChannel.channelName as string}</strong> charges a{" "}
-                <strong className="text-rose-600">{selectedChannel.commissionRate}% commission</strong> on every booking.
-                Set a markup so the OTA-listed price covers the commission — protecting your direct booking ADR.
-              </p>
-            </div>
+          <div className="lg:col-span-2 bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-xs overflow-hidden flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="font-semibold text-slate-800">OTA Rate Markup</label>
-                <span className="font-bold text-blue-600 text-sm">
-                  {selectedChannel.rateMultiplier && selectedChannel.rateMultiplier > 1
-                    ? `+${Math.round((selectedChannel.rateMultiplier - 1) * 100)}%`
-                    : "Parity (0%)"}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Query Output ({fetchType.toUpperCase()})
                 </span>
+                <span className="text-[10px] text-slate-400">Endpoint: POST /api/v2/cm/data/{partnerId}</span>
               </div>
-              <input type="range" min="1.0" max="1.3" step="0.05"
-                value={selectedChannel.rateMultiplier || 1.0}
-                onChange={e => {
-                  const val = parseFloat(e.target.value);
-                  onUpdateMarkup(selectedChannel.id, val);
-                  setSelectedChannel({ ...selectedChannel, rateMultiplier: val });
-                }}
-                className="w-full accent-blue-600 cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                <span>0% Parity</span>
-                <span>+{selectedChannel.commissionRate}% (Cover OTA fee)</span>
-                <span>+30% Premium</span>
-              </div>
-            </div>
-            <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-              <p className="text-[11px] text-slate-500 mb-2 font-semibold">Live Rate Preview (base room ₹8,000 / night)</p>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <div className="text-[10px] text-slate-400 font-semibold uppercase mb-0.5">Your Base Rate</div>
-                  <div className="font-bold text-slate-900">₹8,000</div>
+
+              {fetchResult ? (
+                <pre className="text-[11px] text-emerald-300 overflow-x-auto whitespace-pre-wrap max-h-96">
+                  {JSON.stringify(fetchResult, null, 2)}
+                </pre>
+              ) : (
+                <div className="text-slate-500 py-16 text-center">
+                  <Database className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p>Click "Query Aiosell API" to fetch real-time channel state.</p>
                 </div>
-                <div>
-                  <div className="text-[10px] text-blue-500 font-semibold uppercase mb-0.5">OTA Listed Rate</div>
-                  <div className="font-bold text-blue-700">₹{Math.round(8000 * (selectedChannel.rateMultiplier || 1)).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-emerald-500 font-semibold uppercase mb-0.5">Net to Hotel</div>
-                  <div className="font-bold text-emerald-600">₹{Math.round(8000 * (selectedChannel.rateMultiplier || 1) * (1 - selectedChannel.commissionRate / 100)).toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end pt-1">
-              <Button variant="primary" size="sm" onClick={() => setSelectedChannel(null)}>Save Rules</Button>
+              )}
             </div>
           </div>
-        </Modal>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: INBOUND WEBHOOK TESTER & SIMULATOR */}
+      {/* ========================================================================= */}
+      {activeTab === "webhook" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-900">Inbound Webhook Simulator</h2>
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded">
+                  HTTP Basic Auth Protected
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Exercise your inbound reservation endpoint. Simulates Aiosell calling SIGNINN-HMS with live booking payloads.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {(["book", "modify", "cancel"] as const).map((act) => (
+                <button
+                  key={act}
+                  onClick={() => setSimAction(act)}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg border uppercase tracking-wider transition cursor-pointer ${
+                    simAction === act
+                      ? act === "cancel"
+                        ? "bg-red-600 text-white border-red-600 shadow-xs"
+                        : "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {act} Reservation
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">OTA Booking ID</label>
+                  <input
+                    type="text"
+                    value={simBookingId}
+                    onChange={(e) => setSimBookingId(e.target.value)}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg font-mono font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Booking Channel</label>
+                  <select
+                    value={simChannelName}
+                    onChange={(e) => setSimChannelName(e.target.value)}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white"
+                  >
+                    <option value="Goibibo">Goibibo (GoMMT)</option>
+                    <option value="Booking.com">Booking.com</option>
+                    <option value="Agoda">Agoda</option>
+                    <option value="Airbnb">Airbnb</option>
+                    <option value="Expedia">Expedia</option>
+                  </select>
+                </div>
+              </div>
+
+              {simAction !== "cancel" && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Guest First Name</label>
+                      <input
+                        type="text"
+                        value={simGuestFirst}
+                        onChange={(e) => setSimGuestFirst(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Guest Last Name</label>
+                      <input
+                        type="text"
+                        value={simGuestLast}
+                        onChange={(e) => setSimGuestLast(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Guest Email</label>
+                      <input
+                        type="email"
+                        value={simGuestEmail}
+                        onChange={(e) => setSimGuestEmail(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Total Amount (INR)</label>
+                      <input
+                        type="number"
+                        value={simTotalAmount}
+                        onChange={(e) => setSimTotalAmount(Number(e.target.value))}
+                        className="w-full text-xs p-2 border border-slate-200 rounded-lg font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-800">Payment Collection (PAH Flag)</span>
+                      <p className="text-[11px] text-slate-500">
+                        {simPah ? "Pay-at-Hotel: Guest settles balance at front desk upon check-in" : "Prepaid OTA: Virtual Card or channel settled before arrival"}
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={simPah}
+                        onChange={(e) => setSimPah(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Special Requests (Free text)</label>
+                    <input
+                      type="text"
+                      value={simSpecialReq}
+                      onChange={(e) => setSimSpecialReq(e.target.value)}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="pt-2">
+                <Button
+                  onClick={handleExecuteWebhookSimulation}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-2"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Fire {simAction.toUpperCase()} Webhook
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-3">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Webhook Ingestion Output</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              </div>
+
+              {simResult ? (
+                <pre className="text-[11px] text-emerald-300 overflow-x-auto whitespace-pre-wrap max-h-96">
+                  {JSON.stringify(simResult, null, 2)}
+                </pre>
+              ) : (
+                <div className="text-slate-500 py-16 text-center">
+                  <Radio className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p>Execute webhook simulator to verify automatic reservation & folio generation.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 text-[10px] text-slate-400">
+              Verified: <code className="text-emerald-400">Idempotent on Booking ID · Auto Folio Allocation</code>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: SYNC LOGS & INGESTION AUDIT */}
+      {/* ========================================================================= */}
+      {activeTab === "logs" && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900">Aiosell Channel Ingestion Audit Logs</h2>
+            <span className="text-xs text-slate-500">{ingestionLogs.length} events recorded</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-700 font-semibold border-y border-slate-200">
+                <tr>
+                  <th className="py-2.5 px-3">Timestamp</th>
+                  <th className="py-2.5 px-3">Channel</th>
+                  <th className="py-2.5 px-3">OTA Ref ID</th>
+                  <th className="py-2.5 px-3">Guest Name</th>
+                  <th className="py-2.5 px-3">Dates</th>
+                  <th className="py-2.5 px-3 text-right">Amount</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Method</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ingestionLogs.map((log: any) => (
+                  <tr key={log.id} className="hover:bg-slate-50/80 transition">
+                    <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                      {log.created_at ? log.created_at.substring(0, 19).replace("T", " ") : "Just now"}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900">{log.channel}</td>
+                    <td className="py-2.5 px-3 font-mono text-blue-600 font-medium">{log.ota_reservation_id}</td>
+                    <td className="py-2.5 px-3">{log.guest_name || "Guest"}</td>
+                    <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                      {log.check_in_date} → {log.check_out_date}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-semibold text-slate-800">
+                      {formatCurrency(log.total_amount || 0)}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                          log.status === "Cancelled"
+                            ? "bg-red-50 text-red-700 border border-red-200"
+                            : log.status === "Modified"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        }`}
+                      >
+                        {log.status}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-500 text-[11px]">{log.method}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

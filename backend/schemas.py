@@ -184,6 +184,7 @@ class ReservationCreate(BaseModel):
     rate_plan_code: str = "BAR-EP"
     special_requests: Optional[str] = ""
     eta: Optional[str] = "14:00"
+    status: Optional[str] = "Confirmed"
 
 
 class CheckInRequest(BaseModel):
@@ -365,6 +366,8 @@ class ChannelConfigResponse(BaseModel):
     rate_multiplier: float
     bookings_this_month: int
     active_listings: int
+    category: Optional[str] = "OTA"
+    aiosell_slug: Optional[str] = None
     inbound_email_alias: Optional[str] = None
     ical_export_token: Optional[str] = None
     ical_import_url: Optional[str] = None

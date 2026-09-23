@@ -385,18 +385,29 @@ def check_out_guest(
 
     # Automatically generate official Tax Invoice upon checkout settlement
     inv_num = f"INV-2026-{random.randint(10000, 99999)}"
+    tax = round(res.total_amount * 0.12, 2)
     invoice = Invoice(
         id=generate_id("inv"),
         tenant_id=tenant_id,
         invoice_number=inv_num,
         reservation_id=res.id,
+        reservation_ref=res.ref_code,
         guest_name=f"{res.guest.first_name} {res.guest.last_name}" if res.guest else "Guest",
+        guest_email=res.guest.email if res.guest else "",
+        guest_phone=res.guest.phone if res.guest else "",
         room_number=res.room_number or "",
+        stay_dates=f"{res.check_in_date} to {res.check_out_date}",
+        subtotal=res.total_amount - tax,
+        tax_total=tax,
+        cgst=round(tax / 2, 2),
+        sgst=round(tax / 2, 2),
+        grand_total=res.total_amount,
         amount=res.total_amount,
-        tax_amount=res.total_amount * 0.12,
+        paid_amount=res.paid_amount,
+        balance_due=0.0,
         status="Paid",
-        issued_at=datetime.utcnow().isoformat(),
-        due_date=datetime.utcnow().isoformat()[:10],
+        date=datetime.utcnow().strftime("%Y-%m-%d"),
+        due_date=datetime.utcnow().strftime("%Y-%m-%d"),
     )
     db.add(invoice)
 

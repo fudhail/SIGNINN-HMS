@@ -130,4 +130,4 @@ def test_rate_plans_and_channels_availability():
     channels_res = client.get("/api/channels", headers=headers)
     assert channels_res.status_code == 200
     channels = channels_res.json()
-    assert len(channels) == 4
+    assert len(channels) == 26

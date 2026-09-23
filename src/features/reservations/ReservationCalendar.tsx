@@ -40,8 +40,12 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
   onOpenCheckIn,
   onOpenCheckOut,
 }) => {
-  // Calendar viewport date range state (Defaults to 14 days starting Sep 15, 2026)
-  const [startDateStr, setStartDateStr] = useState('2026-09-15');
+  // Calendar viewport date range state (Defaults to 14 days starting from yesterday for live context)
+  const [startDateStr, setStartDateStr] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  });
   const [viewDays, setViewDays] = useState<7 | 14 | 30>(14);
 
   // Filters
@@ -99,7 +103,9 @@ export const ReservationCalendar: React.FC<ReservationCalendarProps> = ({
   };
 
   const handleToday = () => {
-    setStartDateStr('2026-09-15');
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    setStartDateStr(d.toISOString().split('T')[0]);
   };
 
   // Unassigned reservations

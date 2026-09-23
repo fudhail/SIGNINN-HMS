@@ -404,12 +404,38 @@ def seed_50_rooms_yearly():
     # 6. Channels and Rate Plans
     print("[5/8] Configuring OTA Channels and Rate Plans...")
     channels_data = [
-        ("ch-1", "Booking.com", "BDC", "Connected", 15.0, 1.15, 1420000.0, 108, 48, "ota+ch-1@inbound.signinn.app"),
-        ("ch-2", "MakeMyTrip", "MMT", "Connected", 18.0, 1.18, 980000.0, 84, 32, "ota+ch-2@inbound.signinn.app"),
-        ("ch-3", "Agoda", "AGD", "Connected", 16.0, 1.15, 410000.0, 36, 14, "ota+ch-3@inbound.signinn.app"),
-        ("ch-4", "Airbnb", "ABNB", "Connected", 14.0, 1.10, 290000.0, 22, 11, "ota+ch-4@inbound.signinn.app"),
+        # --- 18 OTAs ---
+        ("ch-1", "Booking.com", "BDC", "Connected", 15.0, 1.0, 1420000.0, 108, 48, "ota+ch-1@inbound.signinn.app", "OTA", "booking.com"),
+        ("ch-2", "GoMMT (MakeMyTrip & Goibibo)", "GOMMT", "Connected", 18.0, 1.0, 980000.0, 84, 32, "ota+ch-2@inbound.signinn.app", "OTA", "gommt"),
+        ("ch-3", "Agoda", "AGD", "Connected", 16.0, 1.0, 410000.0, 36, 14, "ota+ch-3@inbound.signinn.app", "OTA", "agoda"),
+        ("ch-4", "Airbnb", "ABNB", "Connected", 14.0, 1.05, 290000.0, 22, 11, "ota+ch-4@inbound.signinn.app", "OTA", "airbnb"),
+        ("ch-5", "Expedia", "EXPD", "Connected", 18.0, 1.0, 310000.0, 26, 9, "ota+ch-5@inbound.signinn.app", "OTA", "expedia"),
+        ("ch-6", "Cleartrip", "CLTR", "Connected", 15.0, 1.0, 180000.0, 18, 6, "ota+ch-6@inbound.signinn.app", "OTA", "cleartrip"),
+        ("ch-7", "Ease My Trip", "EMT", "Connected", 12.0, 1.0, 140000.0, 15, 5, "ota+ch-7@inbound.signinn.app", "OTA", "easemytrip"),
+        ("ch-8", "CTrip / Trip.com", "CTRP", "Connected", 15.0, 1.0, 165000.0, 14, 4, "ota+ch-8@inbound.signinn.app", "OTA", "ctrip"),
+        ("ch-9", "HotelBeds", "HTBD", "Connected", 20.0, 1.10, 210000.0, 19, 8, "ota+ch-9@inbound.signinn.app", "OTA", "hotelbeds"),
+        ("ch-10", "HostelWorld", "HSTL", "Connected", 15.0, 1.0, 85000.0, 11, 3, "ota+ch-10@inbound.signinn.app", "OTA", "hostelworld"),
+        ("ch-11", "HappyEasyGo", "HEGO", "Connected", 14.0, 1.0, 92000.0, 10, 2, "ota+ch-11@inbound.signinn.app", "OTA", "happyeasygo"),
+        ("ch-12", "Tiket", "TIKT", "Connected", 15.0, 1.0, 78000.0, 8, 2, "ota+ch-12@inbound.signinn.app", "OTA", "tiket"),
+        ("ch-13", "Traveloka", "TVLK", "Connected", 15.0, 1.0, 105000.0, 12, 3, "ota+ch-13@inbound.signinn.app", "OTA", "traveloka"),
+        ("ch-14", "Travelguru", "TGRU", "Connected", 16.0, 1.0, 56000.0, 6, 1, "ota+ch-14@inbound.signinn.app", "OTA", "travelguru"),
+        ("ch-15", "Travolounge", "TRVL", "Connected", 15.0, 1.0, 42000.0, 5, 1, "ota+ch-15@inbound.signinn.app", "OTA", "travolounge"),
+        ("ch-16", "VHS Hub", "VHSH", "Connected", 15.0, 1.0, 38000.0, 4, 1, "ota+ch-16@inbound.signinn.app", "OTA", "vhshub"),
+        ("ch-17", "Bookings Maker", "BKMK", "Connected", 14.0, 1.0, 31000.0, 3, 1, "ota+ch-17@inbound.signinn.app", "OTA", "bookingsmaker"),
+        ("ch-18", "Reconline", "RECN", "Connected", 15.0, 1.0, 28000.0, 3, 1, "ota+ch-18@inbound.signinn.app", "OTA", "reconline"),
+        # --- 2 Channel Managers ---
+        ("ch-19", "eZee Technosys", "EZEE", "Connected", 0.0, 1.0, 0.0, 0, 0, None, "CM", "ezee"),
+        ("ch-20", "Hotelierguru", "HGRU", "Connected", 0.0, 1.0, 0.0, 0, 0, None, "CM", "hotelierguru"),
+        # --- 3 Booking Engines ---
+        ("ch-21", "Simplotel", "SMPL", "Connected", 3.0, 1.0, 175000.0, 18, 5, None, "Booking Engine", "simplotel"),
+        ("ch-22", "Travelanium", "TRVLN", "Connected", 3.5, 1.0, 88000.0, 9, 2, None, "Booking Engine", "travelanium"),
+        ("ch-23", "Aiolia BE", "AIOL", "Connected", 3.0, 1.0, 122000.0, 14, 4, None, "Booking Engine", "aiolia"),
+        # --- 3 OTA Aggregators ---
+        ("ch-24", "Bakuun", "BAKN", "Connected", 10.0, 1.0, 70000.0, 8, 2, None, "OTA Aggregator", "bakuun"),
+        ("ch-25", "RateDock", "RDCK", "Connected", 12.0, 1.0, 58000.0, 6, 2, None, "OTA Aggregator", "ratedock"),
+        ("ch-26", "HyperGuest", "HYPR", "Connected", 11.0, 1.0, 96000.0, 10, 3, None, "OTA Aggregator", "hyperguest"),
     ]
-    for cid, cname, code, status, comm, mult, rev, bks, auto_cnt, alias in channels_data:
+    for cid, cname, code, status, comm, mult, rev, bks, auto_cnt, alias, cat, slug in channels_data:
         ch = ChannelConfig(
             id=cid,
             tenant_id="tenant-1",
@@ -426,6 +452,8 @@ def seed_50_rooms_yearly():
             revenue_this_month=rev,
             bookings_this_month=bks,
             active_listings=4,
+            category=cat,
+            aiosell_slug=slug,
             auto_ingested_count=auto_cnt,
             inbound_email_alias=alias,
             last_email_received_at=datetime.utcnow().isoformat(),
