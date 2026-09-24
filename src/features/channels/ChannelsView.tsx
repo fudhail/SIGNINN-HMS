@@ -65,6 +65,12 @@ const OTA_BRAND_COLORS: Record<string, { initials: string; color: string; bg: st
   "HyperGuest": { initials: "HG", color: "#34495e", bg: "#ebedef" },
 };
 
+const dateFromToday = (offset: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
 export const ChannelsView: React.FC<ChannelsViewProps> = ({
   channels,
   currentProperty,
@@ -92,8 +98,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
   // Push Form State
   const [pushType, setPushType] = useState<"rate" | "inventory" | "restrictions" | "multiplier" | "noshow">("rate");
-  const [pushStartDate, setPushStartDate] = useState("2026-10-15");
-  const [pushEndDate, setPushEndDate] = useState("2026-10-18");
+  const [pushStartDate, setPushStartDate] = useState(() => dateFromToday(1));
+  const [pushEndDate, setPushEndDate] = useState(() => dateFromToday(4));
   const [pushRoomCode, setPushRoomCode] = useState("executive");
   const [pushRatePlanCode, setPushRatePlanCode] = useState("executive-s-ep");
   const [pushRateAmount, setPushRateAmount] = useState<number>(2499);
@@ -110,8 +116,8 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
   // Fetch Form State
   const [fetchType, setFetchType] = useState<"inventory" | "rates" | "reservation">("inventory");
-  const [fetchStartDate, setFetchStartDate] = useState("2026-10-15");
-  const [fetchEndDate, setFetchEndDate] = useState("2026-10-18");
+  const [fetchStartDate, setFetchStartDate] = useState(() => dateFromToday(1));
+  const [fetchEndDate, setFetchEndDate] = useState(() => dateFromToday(4));
   const [fetchResult, setFetchResult] = useState<any | null>(null);
 
   // Webhook Simulator State
@@ -143,7 +149,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
     setIsSyncing(true);
     try {
       await onForceSync();
-      showToast({ title: "Sync Triggered", description: "Channels refreshed across Aiosell network.", type: "success" });
+      showToast({ title: "Mapping verified", description: "Aiosell property mapping is reachable. No rates or inventory were sent.", type: "success" });
+    } catch (err: any) {
+      showToast({ title: "Connection check failed", description: err.message || "Could not reach Aiosell", type: "error" });
     } finally {
       setIsSyncing(false);
     }
@@ -153,6 +161,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const handleExecutePush = async () => {
     setPushResult(null);
     try {
+      if (!aiosellConfig?.configured) throw new Error("Configure Aiosell partner credentials and partner ID on the server first.");
       if (pushType === "rate") {
         const payload = {
           updates: [
@@ -240,6 +249,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
   const handleExecuteFetch = async () => {
     setFetchResult(null);
     try {
+      if (!aiosellConfig?.configured) throw new Error("Configure Aiosell partner credentials and partner ID on the server first.");
       const res = await fetchDataMutation.mutateAsync({
         data_type: fetchType,
         start_date: fetchStartDate,
@@ -349,6 +359,11 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
 
   return (
     <div className="space-y-4">
+      {!aiosellConfig?.configured && (
+        <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Aiosell is not configured. Set the partner ID, username, password and hotel code on the server before demonstrating a live connection.
+        </div>
+      )}
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm">
         <div className="flex items-center gap-3">
@@ -360,14 +375,14 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               <h1 className="text-lg font-bold text-slate-900 leading-tight">OTA Channel Manager</h1>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Aiosell Live Engine
+                Aiosell integration
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                Sandbox Mode Active
+                {aiosellConfig?.configured ? (aiosellConfig.isSandbox ? "Sandbox mode" : "Partner configuration") : "Setup required"}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              {propertyName} · 2-way live sync for Rates, Inventory, Restrictions & Reservations
+              {propertyName} · Verify mapping before pushing rates, inventory or restrictions
             </p>
           </div>
         </div>
@@ -388,7 +403,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-sm disabled:opacity-60 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-            Sync All Feeds
+            Check Aiosell Mapping
           </button>
         </div>
       </div>
@@ -396,7 +411,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
       {/* QUICK SUMMARY METRICS BAR */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
-          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Connected Partners</p>
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Enabled PMS channels</p>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-xl font-bold text-slate-900">{activeCount}</span>
             <span className="text-xs text-slate-500">of {channels.length} Integrations</span>
@@ -411,9 +426,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-xl font-bold text-slate-900">{formatCurrency(totalMonthlyRev)}</span>
           </div>
-          <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-1">
-            <TrendingUp className="w-3 h-3" /> +18.4% vs last cycle
-          </p>
+          <p className="text-[11px] text-slate-500 mt-1">From PMS channel records</p>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
@@ -422,7 +435,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
             <span className="text-xl font-bold text-slate-900">{totalBookings}</span>
             <span className="text-xs text-slate-500">Reservations</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">0 sync collision errors</p>
+          <p className="text-[11px] text-slate-500 mt-1">From PMS channel records</p>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs">
@@ -430,7 +443,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           <div className="flex items-center gap-1.5 mt-1">
             <span className="text-sm font-bold text-blue-700">Aiosell REST v2</span>
           </div>
-          <p className="text-[11px] text-slate-500 truncate mt-1">Basic Auth · Instant Webhook</p>
+          <p className="text-[11px] text-slate-500 truncate mt-1">Connection requires verification</p>
         </div>
       </div>
 
@@ -440,9 +453,9 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <h2 className="text-sm font-semibold tracking-wide">Aiosell Partner Integration Credentials</h2>
+              <h2 className="text-sm font-semibold tracking-wide">Aiosell integration settings</h2>
               <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
-                Sandbox Ready
+                {aiosellConfig?.isSandbox ? "Sandbox configuration" : "Partner configuration"}
               </span>
             </div>
             <p className="text-xs text-slate-300 max-w-2xl">
@@ -475,17 +488,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
               </button>
             </div>
 
-            <div className="bg-slate-800/90 border border-slate-700/80 rounded-lg px-3 py-1.5 flex items-center gap-2">
-              <span className="text-slate-400">Basic Auth:</span>
-              <code className="text-amber-300 font-mono font-semibold">aiosell : AIOsell@123</code>
-              <button
-                onClick={() => copyToClipboard("aiosell:AIOsell@123", "auth")}
-                className="text-slate-400 hover:text-white transition ml-1 cursor-pointer"
-                title="Copy Basic Auth"
-              >
-                {copiedKey === "auth" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-            </div>
           </div>
         </div>
 
@@ -493,8 +495,6 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
           <div className="flex items-center gap-2 text-slate-300">
             <span className="text-slate-400">Aiosell Sandbox Portal Login:</span>
             <span className="text-white font-medium">live.aiosell.com</span>
-            <span className="text-slate-400">· User/Pass:</span>
-            <span className="font-mono text-emerald-300 font-medium">sandboxpms / sandboxpms</span>
           </div>
           <div className="flex items-center gap-2 text-slate-300">
             <span className="text-slate-400">Inbound Webhook:</span>
@@ -652,7 +652,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                               : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
                           }`}
                         >
-                          {isConnected ? "Connected" : "Disconnected"}
+                          {isConnected ? "Enabled in PMS" : "Disabled in PMS"}
                         </button>
                         <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded">
                           {channel.category || "OTA"}
@@ -1322,7 +1322,7 @@ export const ChannelsView: React.FC<ChannelsViewProps> = ({
                     <td className="py-2.5 px-3 font-mono text-blue-600 font-medium">{log.ota_reservation_id}</td>
                     <td className="py-2.5 px-3">{log.guest_name || "Guest"}</td>
                     <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                      {log.check_in_date} → {log.check_out_date}
+                      {log.check_in_date} â†’ {log.check_out_date}
                     </td>
                     <td className="py-2.5 px-3 text-right font-semibold text-slate-800">
                       {formatCurrency(log.total_amount || 0)}

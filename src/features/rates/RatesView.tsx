@@ -19,7 +19,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
-import { useAiosellPushRatesMutation } from '../../services/api/queries';
+import { useAiosellConfigQuery, useAiosellMappingQuery, useAiosellPushRatesMutation } from '../../services/api/queries';
+import { mappedAiosellRoom } from '../../utils/aiosellMapping';
 
 export interface RatesViewProps {
   ratePlans: RatePlan[];
@@ -34,6 +35,8 @@ export const RatesView: React.FC<RatesViewProps> = ({
 }) => {
   const { showToast } = useToast();
   const pushRatesMutation = useAiosellPushRatesMutation();
+  const { data: aiosellConfig } = useAiosellConfigQuery();
+  const { data: aiosellMapping } = useAiosellMappingQuery(undefined, undefined, Boolean(aiosellConfig?.configured));
 
   const [selectedPlan, setSelectedPlan] = useState<RatePlan | null>(null);
   const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
@@ -72,19 +75,18 @@ export const RatesView: React.FC<RatesViewProps> = ({
   const handlePushRatesToAiosell = async () => {
     setIsPushingAiosell(true);
     try {
+      if (!aiosellConfig?.configured) throw new Error('Configure Aiosell on the server before pushing rates.');
       // Build rate updates for Aiosell
       const updates = dates.map((d, idx) => {
         const rates = roomTypes.map((rt) => {
           const rateVal = getEffectiveRate(rt, d, idx);
-          // Map to default Aiosell codes
-          const roomCode = rt.name.toLowerCase().includes('exec')
-            ? 'executive'
-            : rt.name.toLowerCase().includes('suite') || rt.name.toLowerCase().includes('pres')
-            ? 'suite'
-            : 'deluxe';
+          const mappedRoom = mappedAiosellRoom(aiosellMapping, rt);
+          if (mappedRoom.rateplans?.length !== 1) {
+            throw new Error(`Select a mapped rate plan for ${rt.name} in the Channel Manager push form.`);
+          }
           return {
-            roomCode,
-            rateplanCode: `${roomCode}-s-ep`,
+            roomCode: mappedRoom.room_id,
+            rateplanCode: mappedRoom.rateplans[0].rateplan_id,
             rate: rateVal,
           };
         });
@@ -379,13 +381,13 @@ export const RatesView: React.FC<RatesViewProps> = ({
                 <label className="block text-gray-700 font-semibold mb-1">Meal Plan</label>
                 <select
                   value={selectedPlan.mealPlan}
-                  onChange={(e) => setSelectedPlan({ ...selectedPlan, mealPlan: e.target.value })}
+                  onChange={(e) => setSelectedPlan({ ...selectedPlan, mealPlan: e.target.value as RatePlan['mealPlan'] })}
                   className="w-full text-xs h-8 px-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none"
                 >
-                  <option value="Room Only (EP)">Room Only (EP)</option>
-                  <option value="Bed & Breakfast (CP)">Bed & Breakfast (CP)</option>
-                  <option value="Half Board (MAP)">Half Board (MAP)</option>
-                  <option value="Full Board (AP)">Full Board (AP)</option>
+                  <option value="EP">Room Only (EP)</option>
+                  <option value="CP">Bed & Breakfast (CP)</option>
+                  <option value="MAP">Half Board (MAP)</option>
+                  <option value="AP">Full Board (AP)</option>
                 </select>
               </div>
 

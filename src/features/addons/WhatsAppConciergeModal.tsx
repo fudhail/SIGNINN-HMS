@@ -112,7 +112,7 @@ export const WhatsAppConciergeModal: React.FC<WhatsAppConciergeModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-emerald-950 text-sm">Official WhatsApp Business API</span>
-                <Badge variant="success" size="sm">Meta Verified</Badge>
+                <Badge variant="status" status="Active" size="sm">Meta Verified</Badge>
               </div>
               <p className="text-gray-600 text-xs mt-0.5">
                 Automated 2-way WhatsApp vouchers, pre-arrival verification, and interactive guest AI concierge bot.

@@ -209,7 +209,7 @@ export const QrRoomServiceModal: React.FC<QrRoomServiceModalProps> = ({
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Guest Mobile Order</span>
                     <h5 className="font-bold text-white text-xs">Room #{selectedRoomNumber} Tray</h5>
                   </div>
-                  <Badge variant="success" size="sm">Online</Badge>
+                  <Badge variant="status" status="Active" size="sm">Online</Badge>
                 </div>
 
                 <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">

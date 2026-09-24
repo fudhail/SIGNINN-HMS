@@ -333,7 +333,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               99.84%
             </div>
             <div className="text-[10px] text-purple-300/80 mt-0.5 font-normal">
-              5 Gateways Connected
+              Gateway telemetry unavailable
             </div>
           </div>
         </div>
@@ -362,7 +362,7 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
           }`}
         >
           <Server className="w-4 h-4" />
-          OTA Gateway Health (5)
+          OTA Gateway Health
         </button>
 
         <button
@@ -661,60 +661,11 @@ export const SuperAdminView: React.FC<SuperAdminViewProps> = ({
               </p>
             </div>
             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> All Systems Operational
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Telemetry unavailable
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {mockOtaGateways.map((gw) => (
-              <div key={gw.code} className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-900">{gw.name}</h4>
-                    <span className="text-[10px] text-gray-400 font-mono">Gateway Protocol: {gw.code}</span>
-                  </div>
-                  <Badge variant="status" status="Connected" size="sm" dot />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs py-2 border-t border-b border-gray-100">
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Avg Response Latency</span>
-                    <span className="font-mono font-semibold text-gray-900">{gw.latencyMs} ms</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">24h Sync Events</span>
-                    <span className="font-semibold text-gray-900">{gw.syncs24h.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Delivery Success Rate</span>
-                    <span className="font-semibold text-emerald-600">{gw.successRate}%</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-gray-400 block">Tenants Connected</span>
-                    <span className="font-semibold text-blue-600">{gw.tenantsConnected} clients</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-gray-500">
-                  <span className="flex items-center gap-1 text-emerald-600">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> High Parity Integrity
-                  </span>
-                  <button
-                    onClick={() => {
-                      showToast({
-                        title: `${gw.code} Gateway Pinged`,
-                        description: `Healthcheck latency: ${gw.latencyMs}ms. TLS 1.3 certificate valid.`,
-                        type: 'info',
-                      });
-                    }}
-                    className="text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3 h-3" /> Test Ping
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Gateway health telemetry is not configured. Check the Aiosell property mapping in Channel Manager for the current connection state.</div>
         </div>
       )}
 

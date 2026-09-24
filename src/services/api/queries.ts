@@ -369,8 +369,8 @@ export function useChannelsQuery() {
           last_email_received_at: ch.last_email_received_at,
           auto_ingested_count: ch.auto_ingested_count ?? 0,
         }));
-      } catch {
-        return mockServices.getInitialData().channels || [];
+      } catch (error) {
+        throw error;
       }
     },
   });
@@ -969,14 +969,9 @@ export function useToggleChannelStatusMutation() {
 
   return useMutation({
     mutationFn: async (channelId: string) => {
-      try {
-        return await apiRequest<any>(`/api/channels/${channelId}/toggle`, {
-          method: 'PATCH',
-        });
-      } catch (e) {
-        await mockServices.toggleChannelStatus(channelId);
-        return { message: 'Local toggled' };
-      }
+      return await apiRequest<any>(`/api/channels/${channelId}/toggle`, {
+        method: 'PATCH',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
@@ -988,18 +983,16 @@ export function useForceChannelSyncMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      try {
-        return await apiRequest<any>('/api/channels/force-sync', {
-          method: 'POST',
-        });
-      } catch (e) {
-        await mockServices.forceChannelSync();
-        return { message: 'Local synced' };
-      }
+    mutationFn: async (payload?: { hotel_code?: string; partner_id?: string }) => {
+      const params = new URLSearchParams();
+      if (payload?.hotel_code) params.append('hotel_code', payload.hotel_code);
+      if (payload?.partner_id) params.append('partner_id', payload.partner_id);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+      return await apiRequest<any>(`/api/channels/force-sync${queryStr}`, { method: 'POST' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
+      queryClient.invalidateQueries({ queryKey: ['aiosell'] });
     },
   });
 }
@@ -1017,9 +1010,19 @@ export function useAiosellConfigQuery() {
   });
 }
 
-export function useAiosellMappingQuery(hotelCode?: string, partnerId?: string) {
+export function useAiosellRoomMappingQuery() {
+  return useQuery({
+    queryKey: ['aiosell', 'room-mapping'],
+    queryFn: async () => {
+      return await apiRequest<any>('/api/channels/aiosell/room-mapping');
+    },
+  });
+}
+
+export function useAiosellMappingQuery(hotelCode?: string, partnerId?: string, enabled = true) {
   return useQuery({
     queryKey: ['aiosell', 'mapping', hotelCode, partnerId],
+    enabled,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (hotelCode) params.append('hotel_code', hotelCode);

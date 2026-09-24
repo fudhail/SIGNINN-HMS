@@ -242,10 +242,83 @@ def test_all_26_spreadsheet_channels_exist():
     print("PASS: test_all_26_spreadsheet_channels_exist")
 
 
+def test_aiosell_config_endpoint_masks_credentials():
+    res = client.get("/api/channels/aiosell/config")
+    assert res.status_code == 200
+    data = res.json()
+    assert "password" not in data, "Security failure: password leaked in config endpoint"
+    assert "hotelCode" in data
+    assert "partnerId" in data
+    assert "configured" in data
+    assert data["configured"] is True
+    print("PASS: test_aiosell_config_endpoint_masks_credentials")
+
+
+def test_aiosell_room_mapping_endpoint():
+    res = client.get("/api/channels/aiosell/room-mapping", headers={"X-Tenant-ID": "tenant-1"})
+    assert res.status_code == 200
+    data = res.json()
+    assert data.get("success") is True
+    mappings = data.get("mappings", [])
+    assert len(mappings) >= 4, "Expected mapped room types for property"
+    for m in mappings:
+        assert "pmsRoomTypeCode" in m
+        assert "aiosellRoomCode" in m
+        assert "aiosellRateplanCode" in m
+    print("PASS: test_aiosell_room_mapping_endpoint")
+
+
+def test_aiosell_webhook_multi_property_resolution():
+    auth_header = "Basic " + base64.b64encode(b"aiosell:AIOsell@123").decode("utf-8")
+    
+    # 1. Test valid hotelCode matching property code "GA-GOA"
+    res = client.post(
+        "/api/channels/aiosell/webhook",
+        json={
+            "action": "book",
+            "hotelCode": "GA-GOA",
+            "bookingId": "MULTI-PROP-001",
+            "channel": "Booking.com",
+            "checkin": "2026-11-01",
+            "checkout": "2026-11-03",
+            "rooms": [{"roomCode": "executive"}],
+        },
+        headers={"Authorization": auth_header},
+    )
+    assert res.status_code == 200
+    assert res.json().get("success") is True
+
+    # 2. Test unknown hotelCode
+    res_bad = client.post(
+        "/api/channels/aiosell/webhook",
+        json={
+            "action": "book",
+            "hotelCode": "NON-EXISTENT-HOTEL",
+            "bookingId": "MULTI-PROP-002",
+            "channel": "Booking.com",
+        },
+        headers={"Authorization": auth_header},
+    )
+    assert res_bad.status_code == 200
+    assert res_bad.json().get("success") is False
+    assert "Unknown Aiosell hotel code" in res_bad.json().get("message")
+
+    # Clean up test booking
+    db = SessionLocal()
+    db.query(Reservation).filter(Reservation.ota_reservation_id == "MULTI-PROP-001").delete()
+    db.commit()
+    db.close()
+    print("PASS: test_aiosell_webhook_multi_property_resolution")
+
+
 if __name__ == "__main__":
     test_aiosell_client_headers()
     test_aiosell_webhook_auth_failure()
     test_aiosell_webhook_book_modify_cancel()
     test_aiosell_webhook_optional_guest_fields()
     test_all_26_spreadsheet_channels_exist()
-    print("\nALL 5 INTEGRATION TESTS PASSED PERFECTLY!")
+    test_aiosell_config_endpoint_masks_credentials()
+    test_aiosell_room_mapping_endpoint()
+    test_aiosell_webhook_multi_property_resolution()
+    print("\nALL 8 INTEGRATION TESTS PASSED PERFECTLY!")
+

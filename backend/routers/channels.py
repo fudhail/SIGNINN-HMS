@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel, Field
 
 from backend.database import get_db
@@ -38,16 +39,49 @@ from backend.services.aiosell_service import (
 router = APIRouter(prefix="/api/channels", tags=["OTA Channel Manager"])
 
 
-# ==========================================
-# PYDANTIC SCHEMAS FOR AIOSELL ACTIONS
-# ==========================================
+# Default mapping of PMS room types to Aiosell Room IDs & Rate Plan IDs
+PMS_TO_AIOSELL_MAPPING = {
+    "DGV": {"roomCode": "executive", "rateplanCode": "executive-s-ep"},
+    "DSV": {"roomCode": "executive", "rateplanCode": "executive-d-ep"},
+    "EOS": {"roomCode": "suite", "rateplanCode": "suite-s-ep"},
+    "PPV": {"roomCode": "suite", "rateplanCode": "suite-d-ep"},
+}
 
-class AiosellConfigPayload(BaseModel):
-    base_url: Optional[str] = DEFAULT_AIOSELL_BASE_URL
-    username: Optional[str] = DEFAULT_AIOSELL_USERNAME
-    password: Optional[str] = DEFAULT_AIOSELL_PASSWORD
-    partner_id: Optional[str] = DEFAULT_AIOSELL_PARTNER_ID
-    hotel_code: Optional[str] = DEFAULT_AIOSELL_HOTEL_CODE
+AIOSELL_TO_PMS_ROOM_MAP = {
+    "executive": "DGV",
+    "suite": "EOS",
+}
+
+
+def configured_aiosell_client(hotel_code: Optional[str] = None, partner_id: Optional[str] = None) -> AiosellClient:
+    if not DEFAULT_AIOSELL_USERNAME or not DEFAULT_AIOSELL_PASSWORD or not DEFAULT_AIOSELL_PARTNER_ID:
+        raise HTTPException(
+            status_code=503,
+            detail="Aiosell partner credentials and partner ID are not configured in environment (.env).",
+        )
+    return AiosellClient(
+        hotel_code=hotel_code or DEFAULT_AIOSELL_HOTEL_CODE,
+        partner_id=partner_id or DEFAULT_AIOSELL_PARTNER_ID,
+    )
+
+
+def validate_aiosell_mapping(client: AiosellClient, updates: List[Dict[str, Any]], hotel_code: Optional[str]) -> None:
+    result = client.get_property_details(hotel_code=hotel_code)
+    if not result.get("success"):
+        raise HTTPException(status_code=502, detail=result.get("error") or "Could not verify Aiosell property mapping")
+    mapping = result.get("data") or {}
+    expected_hotel = hotel_code or client.hotel_code
+    if mapping.get("hotel_id") and expected_hotel and mapping.get("hotel_id").lower() != expected_hotel.lower():
+        raise HTTPException(status_code=409, detail=f"Aiosell hotel code mismatch: expected '{expected_hotel}', got '{mapping.get('hotel_id')}'")
+    rooms = {room.get("room_id"): room for room in mapping.get("rooms", [])}
+    for update in updates:
+        for entry in update.get("rooms", []) + update.get("rates", []):
+            room = rooms.get(entry.get("roomCode"))
+            if not room:
+                raise HTTPException(status_code=422, detail=f"Unmapped Aiosell room code: {entry.get('roomCode')}. Check Channel Manager mapping.")
+            rateplan_code = entry.get("rateplanCode")
+            if rateplan_code and rateplan_code not in {plan.get("rateplan_id") for plan in room.get("rateplans", [])}:
+                raise HTTPException(status_code=422, detail=f"Unmapped Aiosell rate plan code: {rateplan_code}. Check Channel Manager mapping.")
 
 
 class PushInventoryRequest(BaseModel):
@@ -123,16 +157,53 @@ def get_channel_logs(
 
 @router.post("/force-sync")
 def force_channels_sync(
+    hotel_code: Optional[str] = None,
+    partner_id: Optional[str] = None,
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
+    """
+    Real-time synchronization verification against Aiosell Channel Manager.
+    Fails immediately if Aiosell API is unreachable or credentials invalid.
+    """
+    client = configured_aiosell_client(hotel_code=hotel_code, partner_id=partner_id)
+    target_hotel_code = hotel_code or client.hotel_code
+    target_partner_id = partner_id or client.partner_id
+    result = client.get_property_details(hotel_code=target_hotel_code, partner_id=target_partner_id)
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=result.get("error") or "Failed to reach Aiosell Channel Manager API. Verify partner credentials and network.",
+        )
+    mapping = result.get("data") or {}
+    hotel_id = mapping.get("hotel_id") or target_hotel_code
+    rooms = mapping.get("rooms", [])
+    if not rooms:
+        raise HTTPException(status_code=502, detail="Aiosell returned no rooms or invalid property mapping.")
+
+    # Update last_sync on channel configs
     channels = db.query(ChannelConfig).filter(ChannelConfig.tenant_id == tenant_id).all()
-    now_str = "Just now"
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     for ch in channels:
         ch.last_sync = now_str
         ch.status = "Connected"
     db.commit()
-    return {"message": "All channels synced successfully with 0 inventory sync errors"}
+
+    return {
+        "success": True,
+        "message": f"Aiosell Channel Manager verified for Hotel '{hotel_id}'.",
+        "hotelCode": hotel_id,
+        "roomsCount": len(rooms),
+        "rooms": [
+            {
+                "roomId": r.get("room_id"),
+                "roomName": r.get("room_name"),
+                "rateplans": [rp.get("rateplan_id") for rp in r.get("rateplans", [])],
+            }
+            for r in rooms
+        ],
+        "syncedAt": now_str,
+    }
 
 
 @router.patch("/{channel_id}/toggle")
@@ -167,7 +238,7 @@ def update_channel_markup(
     if not ch:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    markup = payload.get("markup") or payload.get("rateMultiplier")
+    markup = payload.get("markup") if "markup" in payload else payload.get("rateMultiplier")
     if markup is not None:
         ch.rate_multiplier = float(markup)
         db.commit()
@@ -180,19 +251,72 @@ def update_channel_markup(
 
 @router.get("/aiosell/config")
 def get_aiosell_config():
-    """Returns the active Aiosell configuration and sandbox credentials."""
+    """Returns non-secret Aiosell configuration for the UI (never exposes credentials)."""
     return {
         "baseUrl": DEFAULT_AIOSELL_BASE_URL,
-        "username": DEFAULT_AIOSELL_USERNAME,
-        "password": DEFAULT_AIOSELL_PASSWORD,
         "hotelCode": DEFAULT_AIOSELL_HOTEL_CODE,
         "partnerId": DEFAULT_AIOSELL_PARTNER_ID,
+        "username": DEFAULT_AIOSELL_USERNAME,
+        "configured": bool(DEFAULT_AIOSELL_USERNAME and DEFAULT_AIOSELL_PASSWORD and DEFAULT_AIOSELL_PARTNER_ID and DEFAULT_AIOSELL_HOTEL_CODE),
         "sandboxUiUrl": "https://live.aiosell.com",
-        "sandboxUiUser": "sandboxpms",
-        "sandboxUiPass": "sandboxpms",
         "webhookUrl": "/api/channels/aiosell/webhook",
         "alternateWebhookUrl": "/update_reservation",
-        "isSandbox": True,
+        "isSandbox": "sandbox" in (DEFAULT_AIOSELL_HOTEL_CODE or "").lower() or "sandbox" in (DEFAULT_AIOSELL_BASE_URL or "").lower(),
+    }
+
+
+@router.get("/aiosell/room-mapping")
+def get_room_mapping(
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns mapped PMS room types vs Aiosell room codes & rate plans,
+    along with live available Aiosell rooms and rate plans.
+    """
+    prop = db.query(Property).filter(Property.tenant_id == tenant_id).first()
+    prop_id = prop.id if prop else "prop-1"
+    pms_room_types = db.query(RoomType).filter(RoomType.property_id == prop_id).all()
+
+    live_aiosell_rooms = []
+    try:
+        client = configured_aiosell_client()
+        details = client.get_property_details()
+        if details.get("success") and details.get("data", {}).get("rooms"):
+            for r in details["data"]["rooms"]:
+                live_aiosell_rooms.append({
+                    "roomCode": r.get("room_id"),
+                    "roomName": r.get("room_name"),
+                    "rateplans": [
+                        {
+                            "rateplanCode": rp.get("rateplan_id"),
+                            "rateplanName": rp.get("rateplan_name"),
+                            "occupancy": rp.get("occupancy"),
+                        }
+                        for rp in r.get("rateplans", [])
+                    ]
+                })
+    except Exception:
+        pass
+
+    mappings = []
+    for rt in pms_room_types:
+        mapped = PMS_TO_AIOSELL_MAPPING.get(rt.code, {"roomCode": "executive", "rateplanCode": "executive-s-ep"})
+        mappings.append({
+            "pmsRoomTypeId": rt.id,
+            "pmsRoomTypeCode": rt.code,
+            "pmsRoomTypeName": rt.name,
+            "pmsBasePrice": rt.base_price,
+            "aiosellRoomCode": mapped["roomCode"],
+            "aiosellRateplanCode": mapped["rateplanCode"],
+        })
+
+    return {
+        "success": True,
+        "propertyId": prop_id,
+        "hotelCode": DEFAULT_AIOSELL_HOTEL_CODE or "sandbox-pms",
+        "mappings": mappings,
+        "aiosellAvailableRooms": live_aiosell_rooms,
     }
 
 
@@ -202,7 +326,7 @@ def get_aiosell_mapping(
     partner_id: Optional[str] = None,
 ):
     """Fetches real-time property mapping details from Aiosell."""
-    client = AiosellClient()
+    client = configured_aiosell_client()
     res = client.get_property_details(hotel_code=hotel_code, partner_id=partner_id)
     return res
 
@@ -213,7 +337,8 @@ def aiosell_push_inventory(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
+    validate_aiosell_mapping(client, payload.updates, payload.hotel_code)
     result = client.push_inventory(
         updates=payload.updates,
         hotel_code=payload.hotel_code,
@@ -233,7 +358,8 @@ def aiosell_push_rates(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
+    validate_aiosell_mapping(client, payload.updates, payload.hotel_code)
     result = client.push_rates(
         updates=payload.updates,
         hotel_code=payload.hotel_code,
@@ -253,7 +379,8 @@ def aiosell_push_restrictions(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
+    validate_aiosell_mapping(client, payload.updates, payload.hotel_code)
     if payload.type == "rates":
         result = client.push_rate_restrictions(
             to_channels=payload.to_channels,
@@ -283,7 +410,7 @@ def aiosell_channel_multiplier(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
     result = client.set_channel_multiplier(
         multiplier=payload.multiplier,
         channels=payload.channels,
@@ -315,7 +442,7 @@ def aiosell_mark_noshow(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
     result = client.mark_no_show(
         booking_id=payload.booking_id,
         channel=payload.channel,
@@ -351,7 +478,7 @@ def aiosell_fetch_data(
     tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
-    client = AiosellClient()
+    client = configured_aiosell_client()
     result = client.fetch_data(
         data_type=payload.data_type,
         start_date=payload.start_date,
@@ -368,7 +495,7 @@ def aiosell_fetch_data(
 
 def verify_aiosell_basic_auth(authorization: Optional[str]) -> bool:
     """Validates HTTP Basic Auth header sent by Aiosell."""
-    if not authorization:
+    if not authorization or not DEFAULT_AIOSELL_USERNAME or not DEFAULT_AIOSELL_PASSWORD:
         return False
     try:
         scheme, credentials = authorization.split(" ", 1)
@@ -391,18 +518,42 @@ def process_aiosell_webhook(payload: Dict[str, Any], db: Session) -> Dict[str, A
     """
     action = payload.get("action", "").lower()
     booking_id = str(payload.get("bookingId") or "")
-    hotel_code = payload.get("hotelCode", "sandbox-pms")
+    hotel_code = (payload.get("hotelCode") or payload.get("hotel_code") or "").strip()
     channel_name = payload.get("channel", "OTA")
 
     if not action or not booking_id:
         return {"success": False, "message": "Missing action or bookingId"}
 
-    # Determine tenant & property
-    tenant = db.query(Tenant).first()
-    tenant_id = tenant.id if tenant else "tenant-1"
+    if action not in {"book", "modify", "cancel"}:
+        return {"success": False, "message": "Unsupported reservation action"}
 
-    prop = db.query(Property).filter(Property.tenant_id == tenant_id).first()
-    property_id = prop.id if prop else "prop-1"
+    if not hotel_code:
+        return {"success": False, "message": "Missing hotelCode in webhook payload"}
+
+    # Multi-property & multi-tenant resolution:
+    # 1. Match Property by code (case-insensitive)
+    prop = db.query(Property).filter(
+        func.lower(Property.code) == hotel_code.lower()
+    ).first()
+
+    # 2. Match Property by ID if code didn't match
+    if not prop:
+        prop = db.query(Property).filter(
+            func.lower(Property.id) == hotel_code.lower()
+        ).first()
+
+    # 3. If hotel_code matches DEFAULT_AIOSELL_HOTEL_CODE (e.g. sandbox-pms), map to default primary property
+    if not prop and DEFAULT_AIOSELL_HOTEL_CODE and hotel_code.lower() == DEFAULT_AIOSELL_HOTEL_CODE.lower():
+        prop = db.query(Property).filter(Property.id == "prop-1").first() or db.query(Property).first()
+
+    if not prop:
+        return {
+            "success": False,
+            "message": f"Unknown Aiosell hotel code '{hotel_code}' — no matching property found in PMS database",
+        }
+
+    tenant_id = prop.tenant_id
+    property_id = prop.id
 
     # 1. ACTION: CANCEL
     if action == "cancel":
@@ -535,19 +686,21 @@ def process_aiosell_webhook(payload: Dict[str, Any], db: Session) -> Dict[str, A
     # Free-text special requests (Rule 12: plain text)
     special_requests = payload.get("specialRequests") or ""
 
-    # Room Type lookup
+    # Room Type lookup with Aiosell mapping
     room_types = db.query(RoomType).filter(RoomType.property_id == property_id).all()
     room_type = None
     if room_code:
-        for rt in room_types:
-            if rt.code.lower() == room_code.lower() or rt.name.lower() in room_code.lower() or room_code.lower() in rt.name.lower():
-                room_type = rt
-                break
+        # Check explicit mapping (e.g. executive -> DGV, suite -> EOS)
+        mapped_pms_code = AIOSELL_TO_PMS_ROOM_MAP.get(room_code.lower())
+        if mapped_pms_code:
+            room_type = next((rt for rt in room_types if rt.code.lower() == mapped_pms_code.lower()), None)
+        if not room_type:
+            room_type = next((rt for rt in room_types if rt.code.lower() == room_code.lower() or room_code.lower() in rt.name.lower()), None)
     if not room_type and room_types:
         room_type = room_types[0]
 
-    room_type_id = room_type.id if room_type else "rt-1"
-    room_type_name = room_type.name if room_type else "Executive Suite"
+    room_type_id = room_type.id if room_type else "rt-101"
+    room_type_name = room_type.name if room_type else "Deluxe Garden View"
 
     # Room allocation lookup
     vacant_room = (
@@ -753,7 +906,10 @@ async def aiosell_inbound_webhook(
 @router.post("/aiosell/simulate-webhook")
 def simulate_aiosell_webhook(
     payload: Dict[str, Any],
+    tenant_id: str = Depends(get_current_tenant_id),
     db: Session = Depends(get_db),
 ):
     """Internal simulator for testing the Aiosell webhook locally or from UI."""
+    if db.query(Tenant).count() != 1 or db.query(Property).filter(Property.tenant_id == tenant_id).count() != 1:
+        raise HTTPException(status_code=409, detail="Webhook simulation requires a single-property demo tenant")
     return process_aiosell_webhook(payload, db)

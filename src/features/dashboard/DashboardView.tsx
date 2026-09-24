@@ -133,7 +133,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const hskCleanCount = housekeepingTasks.filter((t) => t.status === 'Clean' || t.status === 'Ready').length || readyRooms;
 
   // Maintenance metrics
-  const openMntTickets = maintenanceTickets.filter((t) => t.status !== 'Resolved' && t.status !== 'Closed');
+  const openMntTickets = maintenanceTickets.filter((t) => t.status !== 'Resolved');
   const urgentMntTickets = openMntTickets.filter((t) => t.severity === 'Urgent' || t.severity === 'High');
 
   // Role Category Classification
@@ -217,7 +217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             subtitle={`${completedDepartures} completed • ${pendingDepartures} pending`}
             trend={{ value: `${pendingDepartures} due`, isPositive: pendingDepartures === 0, label: 'remaining' }}
             icon={<LogOut className="w-5 h-5 text-orange-600" />}
-            accentColor="orange"
+            accentColor="amber"
             onClick={() => onNavigate('frontdesk')}
           />
           <StatWidget
@@ -826,7 +826,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             subtitle="Realized rate per occupied room"
             trend={{ value: '+8.4%', isPositive: true, label: 'above target' }}
             icon={<TrendingUp className="w-5 h-5 text-purple-600" />}
-            accentColor="purple"
+            accentColor="indigo"
             onClick={() => onNavigate('rates')}
           />
           <StatWidget
@@ -878,7 +878,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-mono">{c.category || 'OTA'}</span>
                   </div>
                   <div className="text-[11px] text-gray-500 mt-0.5">
-                    Markup: +{c.markupPercent}% • Ingested: {c.bookingsThisMonth || 0} bookings • Revenue: {formatCurrency(c.revenueThisMonth || 0)}
+                    Markup: {Math.round(((c.rateMultiplier || 1) - 1) * 100)}% • Ingested: {c.bookingsThisMonth || 0} bookings • Revenue: {formatCurrency(c.revenueThisMonth || 0)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

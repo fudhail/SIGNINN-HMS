@@ -2,13 +2,19 @@ import os
 import base64
 import requests
 from typing import Dict, Any, List, Optional
+from backend.config import (
+    AIOSELL_BASE_URL,
+    AIOSELL_USERNAME,
+    AIOSELL_PASSWORD,
+    AIOSELL_HOTEL_CODE,
+    AIOSELL_PARTNER_ID,
+)
 
-# Defaults for Aiosell Sandbox environment
-DEFAULT_AIOSELL_BASE_URL = os.getenv("AIOSELL_BASE_URL", "https://live.aiosell.com/api/v2/cm")
-DEFAULT_AIOSELL_USERNAME = os.getenv("AIOSELL_USERNAME", "aiosell")
-DEFAULT_AIOSELL_PASSWORD = os.getenv("AIOSELL_PASSWORD", "AIOsell@123")
-DEFAULT_AIOSELL_HOTEL_CODE = os.getenv("AIOSELL_HOTEL_CODE", "sandbox-pms")
-DEFAULT_AIOSELL_PARTNER_ID = os.getenv("AIOSELL_PARTNER_ID", "sample-pms")
+DEFAULT_AIOSELL_BASE_URL = AIOSELL_BASE_URL
+DEFAULT_AIOSELL_USERNAME = AIOSELL_USERNAME
+DEFAULT_AIOSELL_PASSWORD = AIOSELL_PASSWORD
+DEFAULT_AIOSELL_HOTEL_CODE = AIOSELL_HOTEL_CODE
+DEFAULT_AIOSELL_PARTNER_ID = AIOSELL_PARTNER_ID
 
 
 class AiosellClient:

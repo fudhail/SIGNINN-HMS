@@ -16,7 +16,8 @@ import { RoomType, Room } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
-import { useAiosellPushRestrictionsMutation } from '../../services/api/queries';
+import { useAiosellConfigQuery, useAiosellMappingQuery, useAiosellPushRestrictionsMutation } from '../../services/api/queries';
+import { mappedAiosellRoom } from '../../utils/aiosellMapping';
 
 export interface AvailabilityViewProps {
   roomTypes: RoomType[];
@@ -26,6 +27,8 @@ export interface AvailabilityViewProps {
 export const AvailabilityView: React.FC<AvailabilityViewProps> = ({ roomTypes, rooms }) => {
   const { showToast } = useToast();
   const pushRestrictionsMutation = useAiosellPushRestrictionsMutation();
+  const { data: aiosellConfig } = useAiosellConfigQuery();
+  const { data: aiosellMapping } = useAiosellMappingQuery(undefined, undefined, Boolean(aiosellConfig?.configured));
 
   const [viewDays, setViewDays] = useState<7 | 14>(7);
   const [dayOffset, setDayOffset] = useState(0);
@@ -70,16 +73,13 @@ export const AvailabilityView: React.FC<AvailabilityViewProps> = ({ roomTypes, r
   const handlePushRestrictionsToAiosell = async () => {
     setIsPushing(true);
     try {
+      if (!aiosellConfig?.configured) throw new Error('Configure Aiosell on the server before pushing restrictions.');
       const updates = dates.map((d) => {
         const roomsPayload = roomTypes.map((rt) => {
           const key = `${rt.id}-${d.date}`;
           const isStopSell = !!stopSells[key];
           const minStay = minStays[key] || 1;
-          const roomCode = rt.name.toLowerCase().includes('exec')
-            ? 'executive'
-            : rt.name.toLowerCase().includes('suite') || rt.name.toLowerCase().includes('pres')
-            ? 'suite'
-            : 'deluxe';
+          const roomCode = mappedAiosellRoom(aiosellMapping, rt).room_id;
 
           return {
             roomCode,
